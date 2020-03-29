@@ -17,12 +17,14 @@
 
 namespace Zxing\Common\Reedsolomon;
 
+use Exception;
+
 /**
  * <p>Thrown when an exception occurs during Reed-Solomon decoding, such as when
  * there are too many errors to correct.</p>
  *
  * @author Sean Owen
  */
-final class ReedSolomonException extends \Exception
-{
+final class ReedSolomonException extends Exception{
+
 }

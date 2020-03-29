@@ -23,16 +23,15 @@ namespace Zxing;
  *
  * @author Sean Owen
  */
-final class NotFoundException extends ReaderException
-{
-    private static $instance;
+final class NotFoundException extends ReaderException{
 
-    public static function getNotFoundInstance()
-    {
-        if (!self::$instance) {
-            self::$instance = new NotFoundException();
-        }
+	private static $instance;
 
-        return self::$instance;
-    }
+	public static function getNotFoundInstance(){
+		if(!self::$instance){
+			self::$instance = new NotFoundException();
+		}
+
+		return self::$instance;
+	}
 }

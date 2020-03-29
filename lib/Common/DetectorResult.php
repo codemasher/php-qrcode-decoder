@@ -24,24 +24,21 @@ namespace Zxing\Common;
  *
  * @author Sean Owen
  */
-class DetectorResult
-{
-    private $bits;
-    private $points;
+class DetectorResult{
 
-    public function __construct($bits, $points)
-    {
-        $this->bits   = $bits;
-        $this->points = $points;
-    }
+	private $bits;
+	private $points;
 
-    public final function getBits()
-    {
-        return $this->bits;
-    }
+	public function __construct($bits, $points){
+		$this->bits   = $bits;
+		$this->points = $points;
+	}
 
-    public final function getPoints()
-    {
-        return $this->points;
-    }
+	public final function getBits(){
+		return $this->bits;
+	}
+
+	public final function getPoints(){
+		return $this->points;
+	}
 }
