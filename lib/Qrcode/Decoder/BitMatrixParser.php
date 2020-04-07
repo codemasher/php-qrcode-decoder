@@ -25,21 +25,23 @@ use Zxing\FormatException;
  */
 final class BitMatrixParser{
 
-	private $bitMatrix;
-	private $parsedVersion;
-	private $parsedFormatInfo;
-	private $mirror;
+	private BitMatrix $bitMatrix;
+	private ?Version $parsedVersion = null;
+	private ?FormatInformation $parsedFormatInfo = null;
+	private bool $mirror = false;
 
 	/**
-	 * @param bitMatrix {@link BitMatrix} to parse
+	 * @param \Zxing\Common\BitMatrix $bitMatrix
 	 *
-	 * @throws FormatException if dimension is not >= 21 and 1 mod 4
+	 * @throws \Zxing\FormatException if dimension is not >= 21 and 1 mod 4
 	 */
-	public function __construct($bitMatrix){
+	public function __construct(BitMatrix $bitMatrix){
 		$dimension = $bitMatrix->getHeight();
-		if($dimension < 21 || ($dimension & 0x03) != 1){
-			throw FormatException::getFormatInstance();
+
+		if($dimension < 21 || ($dimension & 0x03) !== 1){
+			throw new FormatException();
 		}
+
 		$this->bitMatrix = $bitMatrix;
 	}
 
@@ -48,29 +50,30 @@ final class BitMatrixParser{
 	 * correct order in order to reconstruct the codewords bytes contained within the
 	 * QR Code.</p>
 	 *
-	 * @return bytes encoded within the QR Code
-	 * @throws FormatException if the exact number of bytes expected is not read
+	 * @return array bytes encoded within the QR Code
+	 * @throws \Zxing\FormatException if the exact number of bytes expected is not read
 	 */
-	public function readCodewords(){
+	public function readCodewords():array{
 
 		$formatInfo = $this->readFormatInformation();
 		$version    = $this->readVersion();
 
 		// Get the data mask for the format used in this QR Code. This will exclude
 		// some bits from reading as we wind through the bit matrix.
-		$dataMask  = DataMask::forReference($formatInfo->getDataMask());
 		$dimension = $this->bitMatrix->getHeight();
-		$dataMask->unmaskBitMatrix($this->bitMatrix, $dimension);
+		$this->bitMatrix = DataMask::unmaskBitMatrix($this->bitMatrix, $dimension, $formatInfo->getDataMask());
 
 		$functionPattern = $version->buildFunctionPattern();
 
 		$readingUp = true;
+
 		if($version->getTotalCodewords()){
 			$result = fill_array(0, $version->getTotalCodewords(), 0);
 		}
 		else{
 			$result = [];
 		}
+
 		$resultOffset = 0;
 		$currentByte  = 0;
 		$bitsRead     = 0;
@@ -94,7 +97,7 @@ final class BitMatrixParser{
 							$currentByte |= 1;
 						}
 						// If we've made a whole byte, save it off
-						if($bitsRead == 8){
+						if($bitsRead === 8){
 							$result[$resultOffset++] = $currentByte; //(byte)
 							$bitsRead                = 0;
 							$currentByte             = 0;
@@ -105,7 +108,7 @@ final class BitMatrixParser{
 			$readingUp ^= true; // readingUp = !readingUp; // switch directions
 		}
 		if($resultOffset != $version->getTotalCodewords()){
-			throw FormatException::getFormatInstance();
+			throw new FormatException();
 		}
 
 		return $result;
@@ -114,11 +117,11 @@ final class BitMatrixParser{
 	/**
 	 * <p>Reads format information from one of its two locations within the QR Code.</p>
 	 *
-	 * @return {@link FormatInformation} encapsulating the QR Code's format info
-	 * @throws FormatException if both format information locations cannot be parsed as
-	 * the valid encoding of format information
+	 * @return \Zxing\Qrcode\Decoder\FormatInformation encapsulating the QR Code's format info
+	 * @throws \Zxing\FormatException if both format information locations cannot be parsed as
+	 *                                the valid encoding of format information
 	 */
-	public function readFormatInformation(){
+	public function readFormatInformation():FormatInformation{
 
 		if($this->parsedFormatInfo != null){
 			return $this->parsedFormatInfo;
@@ -126,9 +129,11 @@ final class BitMatrixParser{
 
 		// Read top-left format info bits
 		$formatInfoBits1 = 0;
+
 		for($i = 0; $i < 6; $i++){
 			$formatInfoBits1 = $this->copyBit($i, 8, $formatInfoBits1);
 		}
+
 		// .. and skip a bit in the timing pattern ...
 		$formatInfoBits1 = $this->copyBit(7, 8, $formatInfoBits1);
 		$formatInfoBits1 = $this->copyBit(8, 8, $formatInfoBits1);
@@ -142,21 +147,25 @@ final class BitMatrixParser{
 		$dimension       = $this->bitMatrix->getHeight();
 		$formatInfoBits2 = 0;
 		$jMin            = $dimension - 7;
+
 		for($j = $dimension - 1; $j >= $jMin; $j--){
 			$formatInfoBits2 = $this->copyBit(8, $j, $formatInfoBits2);
 		}
+
 		for($i = $dimension - 8; $i < $dimension; $i++){
 			$formatInfoBits2 = $this->copyBit($i, 8, $formatInfoBits2);
 		}
 
 		$parsedFormatInfo = FormatInformation::decodeFormatInformation($formatInfoBits1, $formatInfoBits2);
-		if($parsedFormatInfo != null){
+
+		if($parsedFormatInfo !== null){
 			return $parsedFormatInfo;
 		}
-		throw FormatException::getFormatInstance();
+
+		throw new FormatException();
 	}
 
-	private function copyBit($i, $j, $versionBits){
+	private function copyBit(int $i, int $j, int $versionBits):int{
 		$bit = $this->mirror ? $this->bitMatrix->get($j, $i) : $this->bitMatrix->get($i, $j);
 
 		return $bit ? ($versionBits << 1) | 0x1 : $versionBits << 1;
@@ -169,9 +178,9 @@ final class BitMatrixParser{
 	 * @throws FormatException if both version information locations cannot be parsed as
 	 * the valid encoding of version information
 	 */
-	public function readVersion(){
+	public function readVersion():Version{
 
-		if($this->parsedVersion != null){
+		if($this->parsedVersion !== null){
 			return $this->parsedVersion;
 		}
 
@@ -212,19 +221,19 @@ final class BitMatrixParser{
 
 			return $theParsedVersion;
 		}
-		throw FormatException::getFormatInstance();
+		throw new FormatException();
 	}
 
 	/**
 	 * Revert the mask removal done while reading the code words. The bit matrix should revert to its original state.
 	 */
-	public function remask(){
-		if($this->parsedFormatInfo == null){
+	public function remask():void{
+		if($this->parsedFormatInfo === null){
 			return; // We have no format information, and have no data mask
 		}
-		$dataMask  = DataMask::forReference($this->parsedFormatInfo->getDataMask());
+
 		$dimension = $this->bitMatrix->getHeight();
-		$dataMask->unmaskBitMatrix($this->bitMatrix, $dimension);
+		$this->bitMatrix = DataMask::unmaskBitMatrix($this->bitMatrix, $dimension, $this->parsedFormatInfo->getDataMask());
 	}
 
 	/**
@@ -233,16 +242,16 @@ final class BitMatrixParser{
 	 * {@link #readVersion()}. Before proceeding with {@link #readCodewords()} the
 	 * {@link #mirror()} method should be called.
 	 *
-	 * @param mirror Whether to read version and format information mirrored.
+	 * @param bool mirror Whether to read version and format information mirrored.
 	 */
-	public function setMirror($mirror){
+	public function setMirror(bool $mirror):void{
 		$parsedVersion    = null;
 		$parsedFormatInfo = null;
 		$this->mirror     = $mirror;
 	}
 
 	/** Mirror the bit matrix in order to attempt a second reading. */
-	public function mirror(){
+	public function mirror():void{
 		for($x = 0; $x < $this->bitMatrix->getWidth(); $x++){
 			for($y = $x + 1; $y < $this->bitMatrix->getHeight(); $y++){
 				if($this->bitMatrix->get($x, $y) != $this->bitMatrix->get($y, $x)){

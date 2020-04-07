@@ -24,56 +24,58 @@ namespace Zxing;
  */
 final class Result{
 
-	private $text;
-	private $rawBytes;
-	private $resultPoints;
-	private $format;
-	private $resultMetadata;
-	private $timestamp;
+	private string $text;
+	/** @var int[] */
+	private array $rawBytes;
+	/** @var \Zxing\Qrcode\Detector\FinderPattern[] */
+	private ?array  $resultPoints;
+	private string $format;
+	private int    $timestamp;
+	private ?array $resultMetadata = null;
 
 	public function __construct(
-		$text,
-		$rawBytes,
-		$resultPoints,
-		$format,
-		$timestamp = ''
+		string $text,
+		array $rawBytes,
+		array $resultPoints,
+		string $format,
+		int $timestamp = null
 	){
 
 		$this->text           = $text;
 		$this->rawBytes       = $rawBytes;
 		$this->resultPoints   = $resultPoints;
 		$this->format         = $format;
-		$this->resultMetadata = null;
-		$this->timestamp      = $timestamp ?: time();
+		$this->timestamp      = $timestamp ?? \time();
 	}
 
 	/**
-	 * @return raw text encoded by the barcode
+	 * @return string raw text encoded by the barcode
 	 */
-	public function getText(){
+	public function getText():string{
 		return $this->text;
 	}
 
 	/**
-	 * @return raw bytes encoded by the barcode, if applicable, otherwise {@code null}
+	 * @return int[] raw bytes encoded by the barcode, if applicable, otherwise {@code null}
 	 */
-	public function getRawBytes(){
+	public function getRawBytes():array{
 		return $this->rawBytes;
 	}
 
 	/**
-	 * @return points related to the barcode in the image. These are typically points
+	 * @return \Zxing\Qrcode\Detector\FinderPattern[]
+	 *         points related to the barcode in the image. These are typically points
 	 *         identifying finder patterns or the corners of the barcode. The exact meaning is
 	 *         specific to the type of barcode that was decoded.
 	 */
-	public function getResultPoints(){
+	public function getResultPoints():array{
 		return $this->resultPoints;
 	}
 
 	/**
-	 * @return {@link BarcodeFormat} representing the format of the barcode that was decoded
+	 * @return string {@link BarcodeFormat} representing the format of the barcode that was decoded
 	 */
-	public function getBarcodeFormat(){
+	public function getBarcodeFormat():string{
 		return $this->format;
 	}
 
@@ -82,39 +84,46 @@ final class Result{
 	 *   {@code null}. This contains optional metadata about what was detected about the barcode,
 	 *   like orientation.
 	 */
-	public function getResultMetadata(){
+	public function getResultMetadata():?array{
 		return $this->resultMetadata;
 	}
 
-	public function putMetadata($type, $value){
+	public function putMetadata(string $type, $value):void{
+
 		if($this->resultMetadata === null){
 			$this->resultMetadata = [];
 		}
+
 		$resultMetadata[$type] = $value;
 	}
 
-	public function putAllMetadata($metadata){
-		if($metadata !== null){
-			if($this->resultMetadata === null){
-				$this->resultMetadata = $metadata;
-			}
-			else{
-				$this->resultMetadata = array_merge($this->resultMetadata, $metadata);
-			}
+	public function putAllMetadata(array $metadata = null):void{
+
+		if($metadata === null){
+			return;
+		}
+
+		if($this->resultMetadata === null){
+			$this->resultMetadata = $metadata;
+		}
+		else{
+			$this->resultMetadata = \array_merge($this->resultMetadata, $metadata);
 		}
 	}
 
-	public function addResultPoints($newPoints){
+	public function addResultPoints(array $newPoints = null):void{
 		$oldPoints = $this->resultPoints;
+
 		if($oldPoints === null){
 			$this->resultPoints = $newPoints;
 		}
-		elseif($newPoints !== null && count($newPoints) > 0){
-			$allPoints          = fill_array(0, count($oldPoints) + count($newPoints), 0);
-			$allPoints          = arraycopy($oldPoints, 0, $allPoints, 0, count($oldPoints));
-			$allPoints          = arraycopy($newPoints, 0, $allPoints, count($oldPoints), count($newPoints));
+		elseif($newPoints !== null && \count($newPoints) > 0){
+			$allPoints          = fill_array(0, \count($oldPoints) + \count($newPoints), 0);
+			$allPoints          = arraycopy($oldPoints, 0, $allPoints, 0, \count($oldPoints));
+			$allPoints          = arraycopy($newPoints, 0, $allPoints, \count($oldPoints), \count($newPoints));
 			$this->resultPoints = $allPoints;
 		}
+
 	}
 
 	public function getTimestamp(){

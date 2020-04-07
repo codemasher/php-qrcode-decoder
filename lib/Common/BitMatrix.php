@@ -6,22 +6,26 @@ use InvalidArgumentException;
 
 final class BitMatrix{
 
-	private $width;
-	private $height;
-	private $rowSize;
-	private $bits;
+	private int $width;
+	private int $height;
+	private int $rowSize;
+	private array $bits;
 
-	public function __construct($width, $height = false, $rowSize = false, $bits = false){
+	public function __construct(int $width, int $height = null, int $rowSize = null, array $bits = null){
+
 		if(!$height){
 			$height = $width;
 		}
+
 		if(!$rowSize){
 			$rowSize = (int)(($width + 31) / 32);
 		}
+
 		if(!$bits){
 			$bits = fill_array(0, $rowSize * $height, 0);
 //            [];//new int[rowSize * height];
 		}
+
 		$this->width   = $width;
 		$this->height  = $height;
 		$this->rowSize = $rowSize;
@@ -29,15 +33,18 @@ final class BitMatrix{
 	}
 
 	public static function parse($stringRepresentation, $setString, $unsetString){
+
 		if(!$stringRepresentation){
 			throw new InvalidArgumentException();
 		}
+
 		$bits        = [];
 		$bitsPos     = 0;
 		$rowStartPos = 0;
 		$rowLength   = -1;
 		$nRows       = 0;
 		$pos         = 0;
+
 		while($pos < strlen($stringRepresentation)){
 			if($stringRepresentation[$pos] == '\n'
 			   || $stringRepresentation->{$pos} == '\r'){
@@ -94,10 +101,10 @@ final class BitMatrix{
 	/**
 	 * <p>Sets the given bit to true.</p>
 	 *
-	 * @param $x ;  The horizontal component (i.e. which column)
-	 * @param $y ;   The vertical component (i.e. which row)
+	 * @param int $x ;  The horizontal component (i.e. which column)
+	 * @param int $y ;  The vertical component (i.e. which row)
 	 */
-	public function set($x, $y){
+	public function set(int $x, int $y):void{
 		$offset = (int)($y * $this->rowSize + ($x / 32));
 		if(!isset($this->bits[$offset])){
 			$this->bits[$offset] = 0;
@@ -115,7 +122,7 @@ final class BitMatrix{
 //16777216
 	}
 
-	public function _unset($x, $y){//было unset, php не позволяет использовать unset
+	public function _unset(int $x, int $y):void{//было unset, php не позволяет использовать unset
 		$offset              = (int)($y * $this->rowSize + ($x / 32));
 		$this->bits[$offset] &= ~(1 << ($x & 0x1f));
 	}
@@ -123,10 +130,10 @@ final class BitMatrix{
 	/**1 << (249 & 0x1f)
 	 * <p>Flips the given bit.</p>
 	 *
-	 * @param $x ;  The horizontal component (i.e. which column)
-	 * @param $y ;  The vertical component (i.e. which row)
+	 * @param int $x ;  The horizontal component (i.e. which column)
+	 * @param int $y ;  The vertical component (i.e. which row)
 	 */
-	public function flip($x, $y){
+	public function flip(int $x, int $y):void{
 		$offset = $y * $this->rowSize + (int)($x / 32);
 
 		$this->bits[$offset] = ($this->bits[$offset] ^ (1 << ($x & 0x1f)));
@@ -138,12 +145,15 @@ final class BitMatrix{
 	 *
 	 * @param $mask ;  XOR mask
 	 */
-	public function _xor($mask){//было xor, php не позволяет использовать xor
+	public function _xor(BitMatrix $mask):void{//было xor, php не позволяет использовать xor
+
 		if($this->width != $mask->getWidth() || $this->height != $mask->getHeight()
 		   || $this->rowSize != $mask->getRowSize()){
 			throw new InvalidArgumentException("input matrix dimensions do not match");
 		}
+
 		$rowArray = new BitArray($this->width / 32 + 1);
+
 		for($y = 0; $y < $this->height; $y++){
 			$offset = $y * $this->rowSize;
 			$row    = $mask->getRow($y, $rowArray)->getBitArray();
@@ -156,8 +166,9 @@ final class BitMatrix{
 	/**
 	 * Clears all bits (sets to false).
 	 */
-	public function clear(){
+	public function clear():void{
 		$max = count($this->bits);
+
 		for($i = 0; $i < $max; $i++){
 			$this->bits[$i] = 0;
 		}
@@ -166,25 +177,31 @@ final class BitMatrix{
 	/**
 	 * <p>Sets a square region of the bit matrix to true.</p>
 	 *
-	 * @param $left   ;  The horizontal position to begin at (inclusive)
-	 * @param $top    ;  The vertical position to begin at (inclusive)
-	 * @param $width  ;  The width of the region
-	 * @param $height ;  The height of the region
+	 * @param int $left   ;  The horizontal position to begin at (inclusive)
+	 * @param int $top    ;  The vertical position to begin at (inclusive)
+	 * @param int $width  ;  The width of the region
+	 * @param int $height ;  The height of the region
 	 */
-	public function setRegion($left, $top, $width, $height){
+	public function setRegion(int $left, int $top, int $width, int $height):void{
+
 		if($top < 0 || $left < 0){
 			throw new InvalidArgumentException("Left and top must be nonnegative");
 		}
+
 		if($height < 1 || $width < 1){
 			throw new InvalidArgumentException("Height and width must be at least 1");
 		}
+
 		$right  = $left + $width;
 		$bottom = $top + $height;
+
 		if($bottom > $this->height || $right > $this->width){ //> this.height || right > this.width
 			throw new InvalidArgumentException("The region must fit inside the matrix");
 		}
+
 		for($y = $top; $y < $bottom; $y++){
 			$offset = $y * $this->rowSize;
+
 			for($x = $left; $x < $right; $x++){
 				$this->bits[$offset + (int)($x / 32)] = ($this->bits[$offset + (int)($x / 32)] |= 1 << ($x & 0x1f));
 			}
@@ -194,11 +211,12 @@ final class BitMatrix{
 	/**
 	 * Modifies this {@code BitMatrix} to represent the same but rotated 180 degrees
 	 */
-	public function rotate180(){
+	public function rotate180():void{
 		$width     = $this->getWidth();
 		$height    = $this->getHeight();
 		$topRow    = new BitArray($width);
 		$bottomRow = new BitArray($width);
+
 		for($i = 0; $i < ($height + 1) / 2; $i++){
 			$topRow    = $this->getRow($i, $topRow);
 			$bottomRow = $this->getRow($height - 1 - $i, $bottomRow);
@@ -210,9 +228,9 @@ final class BitMatrix{
 	}
 
 	/**
-	 * @return The width of the matrix
+	 * @return int The width of the matrix
 	 */
-	public function getWidth(){
+	public function getWidth():int{
 		return $this->width;
 	}
 
@@ -222,17 +240,20 @@ final class BitMatrix{
 	 * @param $y   ;  The row to retrieve
 	 * @param $row ;  An optional caller-allocated BitArray, will be allocated if null or too small
 	 *
-	 * @return The resulting BitArray - this reference should always be used even when passing
+	 * @return BitArray The resulting BitArray - this reference should always be used even when passing
 	 *         your own row
 	 */
-	public function getRow($y, $row){
-		if($row == null || $row->getSize() < $this->width){
+	public function getRow(int $y, BitArray $row = null):BitArray{
+
+		if($row === null || $row->getSize() < $this->width){
 			$row = new BitArray($this->width);
 		}
 		else{
 			$row->clear();
 		}
+
 		$offset = $y * $this->rowSize;
+
 		for($x = 0; $x < $this->rowSize; $x++){
 			$row->setBulk($x * 32, $this->bits[$offset + $x]);
 		}
@@ -350,16 +371,16 @@ final class BitMatrix{
 	}
 
 	/**
-	 * @return The height of the matrix
+	 * @return int The height of the matrix
 	 */
-	public function getHeight(){
+	public function getHeight():int{
 		return $this->height;
 	}
 
 	/**
-	 * @return The row size of the matrix
+	 * @return int The row size of the matrix
 	 */
-	public function getRowSize(){
+	public function getRowSize():int{
 		return $this->rowSize;
 	}
 
@@ -375,9 +396,9 @@ final class BitMatrix{
 		       && $this->bits === $other->bits;
 	}
 
-	//@Override
 
-	public function hashCode(){
+
+	public function hashCode():int{
 		$hash = $this->width;
 		$hash = 31 * $hash + $this->width;
 		$hash = 31 * $hash + $this->height;
@@ -387,12 +408,14 @@ final class BitMatrix{
 		return $hash;
 	}
 
-	//@Override
 
-	public function toString($setString = '', $unsetString = '', $lineSeparator = ''){
+
+	public function toString(string $setString = '', string $unsetString = '', string $lineSeparator = ''):string{
+
 		if(!$setString || !$unsetString){
 			return (string)'X '.'  ';
 		}
+
 		if($lineSeparator && $lineSeparator !== "\n"){
 			return $this->toString_($setString, $unsetString, $lineSeparator);
 		}
@@ -400,17 +423,20 @@ final class BitMatrix{
 		return (string)($setString.$unsetString."\n");
 	}
 
-	public function toString_($setString, $unsetString, $lineSeparator){
+	public function toString_(string $setString, string $unsetString, string $lineSeparator):string{
 		//$result = new StringBuilder(height * (width + 1));
 		$result = '';
+
 		for($y = 0; $y < $this->height; $y++){
+
 			for($x = 0; $x < $this->width; $x++){
 				$result .= ($this->get($x, $y) ? $setString : $unsetString);
 			}
+
 			$result .= ($lineSeparator);
 		}
 
-		return (string)$result;
+		return $result;
 	}
 
 	/**
@@ -420,12 +446,12 @@ final class BitMatrix{
 	/**
 	 * <p>Gets the requested bit, where true means black.</p>
 	 *
-	 * @param $x ;  The horizontal component (i.e. which column)
-	 * @param $y ;  The vertical component (i.e. which row)
+	 * @param int $x  The horizontal component (i.e. which column)
+	 * @param int $y  The vertical component (i.e. which row)
 	 *
-	 * @return value of given bit in matrix
+	 * @return bool value of given bit in matrix
 	 */
-	public function get($x, $y){
+	public function get(int $x, int $y):bool{
 
 		$offset = (int)($y * $this->rowSize + ($x / 32));
 		if(!isset($this->bits[$offset])){
@@ -438,7 +464,7 @@ final class BitMatrix{
 
 //  @Override
 
-	public function _clone(){
+	public function _clone():BitMatrix{
 		return new BitMatrix($this->width, $this->height, $this->rowSize, $this->bits);
 	}
 }

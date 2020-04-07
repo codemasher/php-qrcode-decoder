@@ -28,20 +28,21 @@ use Zxing\ResultPoint;
  */
 final class FinderPattern extends ResultPoint{
 
-	private $estimatedModuleSize;
-	private $count;
+	private float $estimatedModuleSize;
+	private int $count;
 
-	public function __construct($posX, $posY, $estimatedModuleSize, $count = 1){
+	public function __construct(float $posX, float $posY, float $estimatedModuleSize, int $count = 1){
 		parent::__construct($posX, $posY);
+
 		$this->estimatedModuleSize = $estimatedModuleSize;
 		$this->count               = $count;
 	}
 
-	public function getEstimatedModuleSize(){
+	public function getEstimatedModuleSize():float{
 		return $this->estimatedModuleSize;
 	}
 
-	public function getCount(){
+	public function getCount():int{
 		return $this->count;
 	}
 
@@ -55,9 +56,10 @@ final class FinderPattern extends ResultPoint{
 	 * <p>Determines if this finder pattern "about equals" a finder pattern at the stated
 	 * position and size -- meaning, it is at nearly the same center with nearly the same size.</p>
 	 */
-	public function aboutEquals($moduleSize, $i, $j){
-		if(abs($i - $this->getY()) <= $moduleSize && abs($j - $this->getX()) <= $moduleSize){
-			$moduleSizeDiff = abs($moduleSize - $this->estimatedModuleSize);
+	public function aboutEquals(float $moduleSize, int $i, int $j):bool{
+
+		if(\abs($i - $this->y) <= $moduleSize && \abs($j - $this->x) <= $moduleSize){
+			$moduleSizeDiff = \abs($moduleSize - $this->estimatedModuleSize);
 
 			return $moduleSizeDiff <= 1.0 || $moduleSizeDiff <= $this->estimatedModuleSize;
 		}
@@ -70,12 +72,12 @@ final class FinderPattern extends ResultPoint{
 	 * with a new estimate. It returns a new {@code FinderPattern} containing a weighted average
 	 * based on count.
 	 */
-	public function combineEstimate($i, $j, $newModuleSize){
+	public function combineEstimate(int $i, int $j, float $newModuleSize):FinderPattern{
 		$combinedCount      = $this->count + 1;
-		$combinedX          = ($this->count * $this->getX() + $j) / $combinedCount;
-		$combinedY          = ($this->count * $this->getY() + $i) / $combinedCount;
+		$combinedX          = ($this->count * $this->x + $j) / $combinedCount;
+		$combinedY          = ($this->count * $this->y + $i) / $combinedCount;
 		$combinedModuleSize = ($this->count * $this->estimatedModuleSize + $newModuleSize) / $combinedCount;
 
-		return new FinderPattern($combinedX, $combinedY, $combinedModuleSize, $combinedCount);
+		return new self($combinedX, $combinedY, $combinedModuleSize, $combinedCount);
 	}
 }

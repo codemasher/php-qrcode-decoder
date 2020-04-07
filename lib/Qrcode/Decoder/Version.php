@@ -44,33 +44,31 @@ class Version{
 		];
 
 	private static $VERSIONS;
-	private        $versionNumber;
-	private        $alignmentPatternCenters;
+	private        int $versionNumber;
+	/** @var array  */
+	private        array $alignmentPatternCenters;
 	private        $ecBlocks;
 	private        $totalCodewords;
 
-	public function __construct(
-		$versionNumber,
-		$alignmentPatternCenters,
-		$ecBlocks
-	){//ECBlocks... ecBlocks
-
+	/**
+	 * Version constructor.
+	 *
+	 * @param int   $versionNumber
+	 * @param array $alignmentPatternCenters
+	 * @param \Zxing\Qrcode\Decoder\ECBlocks[] $ecBlocks
+	 */
+	public function __construct(int $versionNumber, array $alignmentPatternCenters, array $ecBlocks){
 		$this->versionNumber           = $versionNumber;
 		$this->alignmentPatternCenters = $alignmentPatternCenters;
 		$this->ecBlocks                = $ecBlocks;
-		$total                         = 0;
-		if(is_array($ecBlocks)){
-			$ecCodewords = $ecBlocks[0]->getECCodewordsPerBlock();
-			$ecbArray    = $ecBlocks[0]->getECBlocks();
-		}
-		else{
-			$ecCodewords = $ecBlocks->getECCodewordsPerBlock();
-			$ecbArray    = $ecBlocks->getECBlocks();
-		}
+		$this->totalCodewords          = 0;
+		$ecCodewords                   = $ecBlocks[0]->getECCodewordsPerBlock();
+		$ecbArray                      = $ecBlocks[0]->getECBlocks();
+
 		foreach($ecbArray as $ecBlock){
-			$total += $ecBlock->getCount() * ($ecBlock->getDataCodewords() + $ecCodewords);
+			$this->totalCodewords += $ecBlock->getCount() * ($ecBlock->getDataCodewords() + $ecCodewords);
 		}
-		$this->totalCodewords = $total;
+
 	}
 
 	public function getVersionNumber(){
@@ -96,24 +94,26 @@ class Version{
 	/**
 	 * <p>Deduces version information purely from QR Code dimensions.</p>
 	 *
-	 * @param dimension dimension in modules
+	 * @param int dimension dimension in modules
 	 *
 	 * @return Version for a QR Code of that dimension
 	 * @throws FormatException if dimension is not 1 mod 4
 	 */
-	public static function getProvisionalVersionForDimension($dimension){
-		if($dimension % 4 != 1){
-			throw FormatException::getFormatInstance();
+	public static function getProvisionalVersionForDimension(int $dimension):Version{
+
+		if($dimension % 4 !== 1){
+			throw new FormatException();
 		}
 		try{
 			return self::getVersionForNumber(($dimension - 17) / 4);
 		}
 		catch(InvalidArgumentException $ignored){
-			throw FormatException::getFormatInstance();
+			throw new FormatException();
 		}
 	}
 
-	public static function getVersionForNumber($versionNumber){
+	public static function getVersionForNumber(int $versionNumber):Version{
+
 		if($versionNumber < 1 || $versionNumber > 40){
 			throw new InvalidArgumentException();
 		}
@@ -127,29 +127,31 @@ class Version{
 	}
 
 	static function decodeVersionInformation($versionBits){
-		$bestDifference = PHP_INT_MAX;
+		$bestDifference = \PHP_INT_MAX;
 		$bestVersion    = 0;
-		for($i = 0; $i < count(self::$VERSION_DECODE_INFO); $i++){
+
+		for($i = 0; $i < \count(self::$VERSION_DECODE_INFO); $i++){
 			$targetVersion = self::$VERSION_DECODE_INFO[$i];
-// Do the version info bits match exactly? done.
-			if($targetVersion == $versionBits){
+			// Do the version info bits match exactly? done.
+
+			if($targetVersion === $versionBits){
 				return self::getVersionForNumber($i + 7);
 			}
-// Otherwise see if this is the closest to a real version info bit string
-// we have seen so far
+			// Otherwise see if this is the closest to a real version info bit string
+			// we have seen so far
 			$bitsDifference = FormatInformation::numBitsDiffering($versionBits, $targetVersion);
 			if($bitsDifference < $bestDifference){
 				$bestVersion    = $i + 7;
 				$bestDifference = $bitsDifference;
 			}
 		}
-// We can tolerate up to 3 bits of error since no two version info codewords will
-// differ in less than 8 bits.
+		// We can tolerate up to 3 bits of error since no two version info codewords will
+		// differ in less than 8 bits.
 		if($bestDifference <= 3){
 			return self::getVersionForNumber($bestVersion);
 		}
 
-// If we didn't find a close enough match, fail
+		// If we didn't find a close enough match, fail
 		return null;
 	}
 
@@ -160,35 +162,35 @@ class Version{
 		$dimension = self::getDimensionForVersion();
 		$bitMatrix = new BitMatrix($dimension);
 
-// Top left finder pattern + separator + format
+		// Top left finder pattern + separator + format
 		$bitMatrix->setRegion(0, 0, 9, 9);
-// Top right finder pattern + separator + format
+		// Top right finder pattern + separator + format
 		$bitMatrix->setRegion($dimension - 8, 0, 8, 9);
-// Bottom left finder pattern + separator + format
+		// Bottom left finder pattern + separator + format
 		$bitMatrix->setRegion(0, $dimension - 8, 9, 8);
 
-// Alignment patterns
+		// Alignment patterns
 		$max = count($this->alignmentPatternCenters);
 		for($x = 0; $x < $max; $x++){
 			$i = $this->alignmentPatternCenters[$x] - 2;
 			for($y = 0; $y < $max; $y++){
-				if(($x == 0 && ($y == 0 || $y == $max - 1)) || ($x == $max - 1 && $y == 0)){
-// No alignment patterns near the three finder paterns
+				if(($x === 0 && ($y === 0 || $y === $max - 1)) || ($x === $max - 1 && $y === 0)){
+					// No alignment patterns near the three finder paterns
 					continue;
 				}
 				$bitMatrix->setRegion($this->alignmentPatternCenters[$y] - 2, $i, 5, 5);
 			}
 		}
 
-// Vertical timing pattern
+		// Vertical timing pattern
 		$bitMatrix->setRegion(6, 9, 1, $dimension - 17);
-// Horizontal timing pattern
+		// Horizontal timing pattern
 		$bitMatrix->setRegion(9, 6, $dimension - 17, 1);
 
 		if($this->versionNumber > 6){
-// Version info, top right
+			// Version info, top right
 			$bitMatrix->setRegion($dimension - 11, 0, 3, 6);
-// Version info, bottom left
+			// Version info, bottom left
 			$bitMatrix->setRegion(0, $dimension - 11, 6, 3);
 		}
 
@@ -197,6 +199,9 @@ class Version{
 
 	/**
 	 * See ISO 18004:2006 6.5.1 Table 9
+	 *
+	 * @todo: clean up this mess
+	 * @see https://github.com/chillerlan/php-qrcode/blob/b11c7dd69d9acda9c7c5d4c6c22eb42a0337e6d5/src/Data/QRDataInterface.php#L125
 	 */
 	private static function buildVersions(){
 
@@ -687,7 +692,7 @@ class Version{
 			),
 			new Version(
 				23, [6, 30, 54, 78, 102],
-				new ECBlocks(
+				[new ECBlocks(
 					30, [
 					new ECB(4, 121),
 					new ECB(5, 122),
@@ -710,7 +715,7 @@ class Version{
 					new ECB(16, 15),
 					new ECB(14, 16),
 				]
-				)
+				)]
 			),
 			new Version(
 				24, [6, 28, 54, 80, 106],
@@ -1204,73 +1209,5 @@ class Version{
 	}
 }
 
-/**
- * <p>Encapsulates a set of error-correction blocks in one symbol version. Most versions will
- * use blocks of differing sizes within one version, so, this encapsulates the parameters for
- * each set of blocks. It also holds the number of error-correction codewords per block since it
- * will be the same across all blocks within one version.</p>
- */
-final class ECBlocks{
-
-	private $ecCodewordsPerBlock;
-	private $ecBlocks;
-
-	function __construct($ecCodewordsPerBlock, $ecBlocks){
-		$this->ecCodewordsPerBlock = $ecCodewordsPerBlock;
-		$this->ecBlocks            = $ecBlocks;
-	}
-
-	public function getECCodewordsPerBlock(){
-		return $this->ecCodewordsPerBlock;
-	}
-
-	public function getNumBlocks(){
-		$total = 0;
-		foreach($this->ecBlocks as $ecBlock){
-			$total += $ecBlock->getCount();
-		}
-
-		return $total;
-	}
-
-	public function getTotalECCodewords(){
-		return $this->ecCodewordsPerBlock * $this->getNumBlocks();
-	}
-
-	public function getECBlocks(){
-		return $this->ecBlocks;
-	}
-}
-
-/**
- * <p>Encapsualtes the parameters for one error-correction block in one symbol version.
- * This includes the number of data codewords, and the number of times a block with these
- * parameters is used consecutively in the QR code version's format.</p>
- */
-final class ECB{
-
-	private $count;
-	private $dataCodewords;
-
-	function __construct($count, $dataCodewords){
-		$this->count         = $count;
-		$this->dataCodewords = $dataCodewords;
-	}
-
-	public function getCount(){
-		return $this->count;
-	}
-
-	public function getDataCodewords(){
-		return $this->dataCodewords;
-	}
-
-//@Override
-	public function toString(){
-		die('Version ECB toString()');
-		//  return parent::$versionNumber;
-	}
-
-}
 
 

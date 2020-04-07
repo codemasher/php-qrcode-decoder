@@ -18,6 +18,7 @@
 namespace Zxing;
 
 use Zxing\Common\Detector\MathUtils;
+use Zxing\Qrcode\Detector\FinderPattern;
 
 /**
  * <p>Encapsulates a point of interest in an image containing a barcode. Typically, this
@@ -27,31 +28,28 @@ use Zxing\Common\Detector\MathUtils;
  */
 class ResultPoint{
 
-	private $x;
-	private $y;
+	protected float $x;
+	protected float $y;
 
-	public function __construct($x, $y){
-		$this->x = (float)($x);
-		$this->y = (float)($y);
+	public function __construct(float $x, float $y){
+		$this->x = $x;
+		$this->y = $y;
 	}
 
 	/**
 	 * Orders an array of three ResultPoints in an order [A,B,C] such that AB is less than AC
 	 * and BC is less than AC, and the angle between BC and BA is less than 180 degrees.
 	 *
-	 * @param patterns array of three {@code ResultPoint} to order
+	 * @param ResultPoint[] patterns array of three {@code ResultPoint} to order
 	 */
-	public static function orderBestPatterns($patterns){
+	public static function orderBestPatterns(array $patterns):array{
 
-// Find distances between pattern centers
+		// Find distances between pattern centers
 		$zeroOneDistance = self::distance($patterns[0], $patterns[1]);
 		$oneTwoDistance  = self::distance($patterns[1], $patterns[2]);
 		$zeroTwoDistance = self::distance($patterns[0], $patterns[2]);
 
-		$pointA = '';
-		$pointB = '';
-		$pointC = '';
-// Assume one closest to other two is B; A and C will just be guesses at first
+		// Assume one closest to other two is B; A and C will just be guesses at first
 		if($oneTwoDistance >= $zeroOneDistance && $oneTwoDistance >= $zeroTwoDistance){
 			$pointB = $patterns[0];
 			$pointA = $patterns[1];
@@ -68,10 +66,10 @@ class ResultPoint{
 			$pointC = $patterns[1];
 		}
 
-// Use cross product to figure out whether A and C are correct or flipped.
-// This asks whether BC x BA has a positive z component, which is the arrangement
-// we want for A, B, C. If it's negative, then we've got it flipped around and
-// should swap A and C.
+		// Use cross product to figure out whether A and C are correct or flipped.
+		// This asks whether BC x BA has a positive z component, which is the arrangement
+		// we want for A, B, C. If it's negative, then we've got it flipped around and
+		// should swap A and C.
 		if(self::crossProductZ($pointA, $pointB, $pointC) < 0.0){
 			$temp   = $pointA;
 			$pointA = $pointC;
@@ -86,65 +84,49 @@ class ResultPoint{
 	}
 
 	/**
-	 * @param pattern1 first pattern
-	 * @param pattern2 second pattern
+	 * @param \Zxing\Qrcode\Detector\FinderPattern $pattern1 first pattern
+	 * @param \Zxing\Qrcode\Detector\FinderPattern $pattern2 second pattern
 	 *
-	 * @return distance between two points
+	 * @return float distance between two points
 	 */
-	public static function distance($pattern1, $pattern2){
-		return MathUtils::distance($pattern1->x, $pattern1->y, $pattern2->x, $pattern2->y);
+	public static function distance(FinderPattern $pattern1, FinderPattern $pattern2):float{
+		return MathUtils::distance($pattern1->getX(), $pattern1->getY(), $pattern2->getX(), $pattern2->getY());
 	}
-
-//@Override
 
 	/**
 	 * Returns the z component of the cross product between vectors BC and BA.
 	 */
-	private static function crossProductZ(
-		$pointA,
-		$pointB,
-		$pointC
-	){
-		$bX = $pointB->x;
-		$bY = $pointB->y;
+	private static function crossProductZ(FinderPattern $pointA, FinderPattern $pointB, FinderPattern $pointC):float{
+		$bX = $pointB->getX();
+		$bY = $pointB->getY();
 
-		return (($pointC->x - $bX) * ($pointA->y - $bY)) - (($pointC->y - $bY) * ($pointA->x - $bX));
+		return (($pointC->getX() - $bX) * ($pointA->getY() - $bY)) - (($pointC->getY() - $bY) * ($pointA->getX() - $bX));
 	}
 
-//@Override
-
-	public final function getX(){
-		return (float)($this->x);
+	final public function getX():float{
+		return (float)$this->x;
 	}
 
-//@Override
-
-	public final function getY(){
-		return (float)($this->y);
+	final public function getY():float{
+		return (float)$this->y;
 	}
 
-	public final function equals($other){
+	final public function equals($other):bool{
+
 		if($other instanceof ResultPoint){
 			$otherPoint = $other;
 
-			return $this->x == $otherPoint->x && $this->y == $otherPoint->y;
+			return $this->x == $otherPoint->getX() && $this->y == $otherPoint->getY();
 		}
 
 		return false;
 	}
 
-	public final function hashCode(){
+	final public function hashCode():int{
 		return 31 * floatToIntBits($this->x) + floatToIntBits($this->y);
 	}
 
-	public final function toString(){
-		$result = '';
-		$result .= ('(');
-		$result .= ($this->x);
-		$result .= (',');
-		$result .= ($this->y);
-		$result .= (')');
-
-		return $result;
+	final public function toString():string{
+		return '('.$this->x.','.$this->y.')';
 	}
 }

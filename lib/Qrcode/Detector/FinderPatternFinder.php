@@ -29,34 +29,34 @@ use Zxing\ResultPoint;
  *
  * @author Sean Owen
  */
-class FinderPatternFinder{
+final class FinderPatternFinder{
 
-	protected static $MIN_SKIP      = 3;
-	protected static $MAX_MODULES   = 57; // 1 pixel/module times 3 modules/center
-	private static   $CENTER_QUORUM = 2; // support up to version 10 for mobile clients
-	private          $image;
-	private          $average;
-	private          $possibleCenters; //private final List<FinderPattern> possibleCenters;
-	private          $hasSkipped    = false;
-	private          $crossCheckStateCount;
-	private          $resultPointCallback;
+	private const MIN_SKIP      = 3;
+	private const MAX_MODULES   = 57; // 1 pixel/module times 3 modules/center
+	private const CENTER_QUORUM = 2; // support up to version 10 for mobile clients
+	private          BitMatrix $image;
+	private          float $average;
+	/** @var \Zxing\Qrcode\Detector\FinderPattern[] */
+	private          array $possibleCenters; //private final List<FinderPattern> possibleCenters;
+	private          bool $hasSkipped    = false;
+	/** @var int[]  */
+	private          array $crossCheckStateCount;
 
 	/**
 	 * <p>Creates a finder that will search the image for three finder patterns.</p>
 	 *
 	 * @param BitMatrix $image image to search
 	 */
-	public function __construct($image, $resultPointCallback = null){
+	public function __construct($image){
 		$this->image = $image;
 
 		$this->possibleCenters      = [];//new ArrayList<>();
 		$this->crossCheckStateCount = fill_array(0, 5, 0);
-		$this->resultPointCallback  = $resultPointCallback;
 	}
 
-	final public function find($hints){/*final FinderPatternInfo find(Map<DecodeHintType,?> hints) throws NotFoundException {*/
-		$tryHarder   = true;//$hints != null && $hints['TRY_HARDER'];
-		$pureBarcode = $hints != null && $hints['PURE_BARCODE'];
+	final public function find(array $hints = null){/*final FinderPatternInfo find(Map<DecodeHintType,?> hints) throws NotFoundException {*/
+		$tryHarder   = true;//$hints !== null && $hints['TRY_HARDER'];
+		$pureBarcode = $hints !== null && $hints['PURE_BARCODE'];
 		$maxI        = $this->image->getHeight();
 		$maxJ        = $this->image->getWidth();
 		// We are looking for black/white/black/white/black modules in
@@ -66,13 +66,15 @@ class FinderPatternFinder{
 		// image, and then account for the center being 3 modules in size. This gives the smallest
 		// number of pixels the center could be, so skip this often. When trying harder, look for all
 		// QR versions regardless of how dense they are.
-		$iSkip = (int)((3 * $maxI) / (4 * self::$MAX_MODULES));
-		if($iSkip < self::$MIN_SKIP || $tryHarder){
-			$iSkip = self::$MIN_SKIP;
+		$iSkip = (int)((3 * $maxI) / (4 * self::MAX_MODULES));
+
+		if($iSkip < self::MIN_SKIP || $tryHarder){
+			$iSkip = self::MIN_SKIP;
 		}
 
 		$done       = false;
 		$stateCount = [];
+
 		for($i = $iSkip - 1; $i < $maxI && !$done; $i += $iSkip){
 			// Get a row of black/white values
 			$stateCount[0] = 0;
@@ -81,19 +83,26 @@ class FinderPatternFinder{
 			$stateCount[3] = 0;
 			$stateCount[4] = 0;
 			$currentState  = 0;
+
 			for($j = 0; $j < $maxJ; $j++){
+
 				if($this->image->get($j, $i)){
 					// Black pixel
 					if(($currentState & 1) == 1){ // Counting white pixels
 						$currentState++;
 					}
+
 					$stateCount[$currentState]++;
 				}
 				else{ // White pixel
-					if(($currentState & 1) == 0){ // Counting black pixels
-						if($currentState == 4){ // A winner?
+
+					if(($currentState & 1) === 0){ // Counting black pixels
+
+						if($currentState === 4){ // A winner?
+
 							if(self::foundPatternCross($stateCount)){ // Yes
 								$confirmed = $this->handlePossibleCenter($stateCount, $i, $j, $pureBarcode);
+
 								if($confirmed){
 									// Start examining every other line. Checking each line turned out to be too
 									// expensive and didn't improve performance.
@@ -103,6 +112,7 @@ class FinderPatternFinder{
 									}
 									else{
 										$rowSkip = $this->findRowSkip();
+
 										if($rowSkip > $stateCount[2]){
 											// Skip rows between row of lower confirmed center
 											// and top of presumed third confirmed center
@@ -152,10 +162,13 @@ class FinderPatternFinder{
 					}
 				}
 			}
+
 			if(self::foundPatternCross($stateCount)){
 				$confirmed = $this->handlePossibleCenter($stateCount, $i, $maxJ, $pureBarcode);
+
 				if($confirmed){
 					$iSkip = $stateCount[0];
+
 					if($this->hasSkipped){
 						// Found a third one
 						$done = $this->haveMultiplyConfirmedCenters();
@@ -171,33 +184,37 @@ class FinderPatternFinder{
 	}
 
 	/**
-	 * @param $stateCount ; count of black/white/black/white/black pixels just read
+	 * @param int[] $stateCount ; count of black/white/black/white/black pixels just read
 	 *
-	 * @return true iff the proportions of the counts is close enough to the 1/1/3/1/1 ratios
+	 * @return bool true if the proportions of the counts is close enough to the 1/1/3/1/1 ratios
 	 *         used by finder patterns to be considered a match
 	 */
-	protected static function foundPatternCross($stateCount){
+	protected static function foundPatternCross(array $stateCount):bool{
 		$totalModuleSize = 0;
+
 		for($i = 0; $i < 5; $i++){
 			$count = $stateCount[$i];
-			if($count == 0){
+
+			if($count === 0){
 				return false;
 			}
+
 			$totalModuleSize += $count;
 		}
+
 		if($totalModuleSize < 7){
 			return false;
 		}
+
 		$moduleSize  = $totalModuleSize / 7.0;
 		$maxVariance = $moduleSize / 2.0;
 
 		// Allow less than 50% variance from 1-1-3-1-1 proportions
-		return
-			abs($moduleSize - $stateCount[0]) < $maxVariance
-			&& abs($moduleSize - $stateCount[1]) < $maxVariance
-			&& abs(3.0 * $moduleSize - $stateCount[2]) < 3 * $maxVariance
-			&& abs($moduleSize - $stateCount[3]) < $maxVariance
-			&& abs($moduleSize - $stateCount[4]) < $maxVariance;
+		return \abs($moduleSize - $stateCount[0]) < $maxVariance
+			&& \abs($moduleSize - $stateCount[1]) < $maxVariance
+			&& \abs(3.0 * $moduleSize - $stateCount[2]) < 3 * $maxVariance
+			&& \abs($moduleSize - $stateCount[3]) < $maxVariance
+			&& \abs($moduleSize - $stateCount[4]) < $maxVariance;
 	}
 
 	/**
@@ -212,27 +229,28 @@ class FinderPatternFinder{
 	 * Each additional find is more evidence that the location is in fact a finder
 	 * pattern center
 	 *
-	 * @param $stateCount reading state module counts from horizontal scan
-	 * @param i           row where finder pattern may be found
-	 * @param j           end of possible finder pattern in row
-	 * @param pureBarcode true if in "pure barcode" mode
+	 * @param int[] $stateCount reading state module counts from horizontal scan
+	 * @param int $i           row where finder pattern may be found
+	 * @param int $j           end of possible finder pattern in row
+	 * @param bool $pureBarcode true if in "pure barcode" mode
 	 *
 	 * @return true if a finder pattern candidate was found this time
 	 */
-	protected final function handlePossibleCenter($stateCount, $i, $j, $pureBarcode){
-		$stateCountTotal = $stateCount[0] + $stateCount[1] + $stateCount[2] + $stateCount[3] +
-		                   $stateCount[4];
+	protected final function handlePossibleCenter(array $stateCount, int $i, int $j, bool $pureBarcode):bool{
+		$stateCountTotal = $stateCount[0] + $stateCount[1] + $stateCount[2] + $stateCount[3] + $stateCount[4];
 		$centerJ         = $this->centerFromEnd($stateCount, $j);
 		$centerI         = $this->crossCheckVertical($i, (int)($centerJ), $stateCount[2], $stateCountTotal);
-		if(!is_nan($centerI)){
+
+		if(!\is_nan($centerI)){
 			// Re-cross check
 			$centerJ = $this->crossCheckHorizontal((int)($centerJ), (int)($centerI), $stateCount[2], $stateCountTotal);
-			if(!is_nan($centerJ)
+			if(!\is_nan($centerJ)
 			   && (!$pureBarcode || $this->crossCheckDiagonal((int)($centerI), (int)($centerJ), $stateCount[2], $stateCountTotal))
 			){
 				$estimatedModuleSize = (float)$stateCountTotal / 7.0;
 				$found               = false;
-				for($index = 0; $index < count($this->possibleCenters); $index++){
+
+				for($index = 0; $index < \count($this->possibleCenters); $index++){
 					$center = $this->possibleCenters[$index];
 					// Look for about the same center and module size:
 					if($center->aboutEquals($estimatedModuleSize, $centerI, $centerJ)){
@@ -241,12 +259,10 @@ class FinderPatternFinder{
 						break;
 					}
 				}
+
 				if(!$found){
 					$point                   = new FinderPattern($centerJ, $centerI, $estimatedModuleSize);
 					$this->possibleCenters[] = $point;
-					if($this->resultPointCallback != null){
-						$this->resultPointCallback->foundPossibleResultPoint($point);
-					}
 				}
 
 				return true;
@@ -260,8 +276,8 @@ class FinderPatternFinder{
 	 * Given a count of black/white/black/white/black pixels just seen and an end position,
 	 * figures the location of the center of this run.
 	 */
-	private static function centerFromEnd($stateCount, $end){
-		return (float)($end - $stateCount[4] - $stateCount[3]) - $stateCount[2] / 2.0;
+	private static function centerFromEnd(array $stateCount, int $end):float{
+		return (float)(($end - $stateCount[4] - $stateCount[3]) - $stateCount[2] / 2.0);
 	}
 
 	/**
@@ -269,17 +285,15 @@ class FinderPatternFinder{
 	 * "cross-checks" by scanning down vertically through the center of the possible
 	 * finder pattern to see if the same proportion is detected.</p>
 	 *
-	 * @param $startI   ;  row where a finder pattern was detected
-	 * @param centerJ   ; center of the section that appears to cross a finder pattern
-	 * @param $maxCount ; maximum reasonable number of modules that should be
+	 * @param int $startI   ;  row where a finder pattern was detected
+	 * @param int $centerJ   ; center of the section that appears to cross a finder pattern
+	 * @param int $maxCount ; maximum reasonable number of modules that should be
 	 *                  observed in any reading state, based on the results of the horizontal scan
+	 * @param int $originalStateCountTotal
 	 *
-	 * @return vertical center of finder pattern, or {@link Float#NaN} if not found
+	 * @return float vertical center of finder pattern, or {@link Float#NaN} if not found
 	 */
-	private function crossCheckVertical(
-		$startI, $centerJ, $maxCount,
-		$originalStateCountTotal
-	){
+	private function crossCheckVertical(int $startI, int $centerJ, int $maxCount, int $originalStateCountTotal):float{
 		$image = $this->image;
 
 		$maxI       = $image->getHeight();
@@ -291,23 +305,28 @@ class FinderPatternFinder{
 			$stateCount[2]++;
 			$i--;
 		}
+
 		if($i < 0){
-			return NAN;
+			return \NAN;
 		}
+
 		while($i >= 0 && !$image->get($centerJ, $i) && $stateCount[1] <= $maxCount){
 			$stateCount[1]++;
 			$i--;
 		}
+
 		// If already too many modules in this state or ran off the edge:
 		if($i < 0 || $stateCount[1] > $maxCount){
-			return NAN;
+			return \NAN;
 		}
+
 		while($i >= 0 && $image->get($centerJ, $i) && $stateCount[0] <= $maxCount){
 			$stateCount[0]++;
 			$i--;
 		}
+
 		if($stateCount[0] > $maxCount){
-			return NAN;
+			return \NAN;
 		}
 
 		// Now also count down from center
@@ -316,36 +335,43 @@ class FinderPatternFinder{
 			$stateCount[2]++;
 			$i++;
 		}
-		if($i == $maxI){
-			return NAN;
+
+		if($i === $maxI){
+			return \NAN;
 		}
+
 		while($i < $maxI && !$image->get($centerJ, $i) && $stateCount[3] < $maxCount){
 			$stateCount[3]++;
 			$i++;
 		}
-		if($i == $maxI || $stateCount[3] >= $maxCount){
-			return NAN;
+
+		if($i === $maxI || $stateCount[3] >= $maxCount){
+			return \NAN;
 		}
+
 		while($i < $maxI && $image->get($centerJ, $i) && $stateCount[4] < $maxCount){
 			$stateCount[4]++;
 			$i++;
 		}
+
 		if($stateCount[4] >= $maxCount){
-			return NAN;
+			return \NAN;
 		}
 
 		// If we found a finder-pattern-like section, but its size is more than 40% different than
 		// the original, assume it's a false positive
-		$stateCountTotal = $stateCount[0] + $stateCount[1] + $stateCount[2] + $stateCount[3] +
-		                   $stateCount[4];
-		if(5 * abs($stateCountTotal - $originalStateCountTotal) >= 2 * $originalStateCountTotal){
-			return NAN;
+		$stateCountTotal = $stateCount[0] + $stateCount[1] + $stateCount[2] + $stateCount[3] + $stateCount[4];
+		if(5 * \abs($stateCountTotal - $originalStateCountTotal) >= 2 * $originalStateCountTotal){
+			return \NAN;
 		}
 
-		return self::foundPatternCross($stateCount) ? $this->centerFromEnd($stateCount, $i) : NAN;
+		return self::foundPatternCross($stateCount) ? $this->centerFromEnd($stateCount, $i) : \NAN;
 	}
 
-	private function getCrossCheckStateCount(){
+	/**
+	 * @return int[]
+	 */
+	private function getCrossCheckStateCount():array{
 		$this->crossCheckStateCount[0] = 0;
 		$this->crossCheckStateCount[1] = 0;
 		$this->crossCheckStateCount[2] = 0;
@@ -360,10 +386,7 @@ class FinderPatternFinder{
 	 * except it reads horizontally instead of vertically. This is used to cross-cross
 	 * check a vertical cross check and locate the real center of the alignment pattern.</p>
 	 */
-	private function crossCheckHorizontal(
-		$startJ, $centerI, $maxCount,
-		$originalStateCountTotal
-	){
+	private function crossCheckHorizontal(int $startJ, int $centerI, int $maxCount, int $originalStateCountTotal):float{
 		$image = $this->image;
 
 		$maxJ       = $this->image->getWidth();
@@ -374,22 +397,27 @@ class FinderPatternFinder{
 			$stateCount[2]++;
 			$j--;
 		}
+
 		if($j < 0){
-			return NAN;
+			return \NAN;
 		}
+
 		while($j >= 0 && !$image->get($j, $centerI) && $stateCount[1] <= $maxCount){
 			$stateCount[1]++;
 			$j--;
 		}
+
 		if($j < 0 || $stateCount[1] > $maxCount){
-			return NAN;
+			return \NAN;
 		}
+
 		while($j >= 0 && $image->get($j, $centerI) && $stateCount[0] <= $maxCount){
 			$stateCount[0]++;
 			$j--;
 		}
+
 		if($stateCount[0] > $maxCount){
-			return NAN;
+			return \NAN;
 		}
 
 		$j = $startJ + 1;
@@ -397,33 +425,36 @@ class FinderPatternFinder{
 			$stateCount[2]++;
 			$j++;
 		}
-		if($j == $maxJ){
-			return NAN;
+
+		if($j === $maxJ){
+			return \NAN;
 		}
+
 		while($j < $maxJ && !$image->get($j, $centerI) && $stateCount[3] < $maxCount){
 			$stateCount[3]++;
 			$j++;
 		}
-		if($j == $maxJ || $stateCount[3] >= $maxCount){
-			return NAN;
+
+		if($j === $maxJ || $stateCount[3] >= $maxCount){
+			return \NAN;
 		}
+
 		while($j < $maxJ && $this->image->get($j, $centerI) && $stateCount[4] < $maxCount){
 			$stateCount[4]++;
 			$j++;
 		}
+
 		if($stateCount[4] >= $maxCount){
-			return NAN;
+			return \NAN;
 		}
 
 		// If we found a finder-pattern-like section, but its size is significantly different than
 		// the original, assume it's a false positive
-		$stateCountTotal = $stateCount[0] + $stateCount[1] + $stateCount[2] + $stateCount[3] +
-		                   $stateCount[4];
-		if(5 * abs($stateCountTotal - $originalStateCountTotal) >= $originalStateCountTotal){
-			return NAN;
+		if(5 * \abs(($stateCount[0] + $stateCount[1] + $stateCount[2] + $stateCount[3] + $stateCount[4]) - $originalStateCountTotal) >= $originalStateCountTotal){
+			return \NAN;
 		}
 
-		return $this->foundPatternCross($stateCount) ? $this->centerFromEnd($stateCount, $j) : NAN;
+		return $this->foundPatternCross($stateCount) ? $this->centerFromEnd($stateCount, $j) : \NAN;
 	}
 
 	/**
@@ -432,20 +463,21 @@ class FinderPatternFinder{
 	 * finder pattern to see if the same proportion is detected.
 	 *
 	 * @param $startI                 ;  row where a finder pattern was detected
-	 * @param centerJ                 ; center of the section that appears to cross a finder pattern
+	 * @param $centerJ                 ; center of the section that appears to cross a finder pattern
 	 * @param $maxCount               ; maximum reasonable number of modules that should be
 	 *                                observed in any reading state, based on the results of the horizontal scan
-	 * @param originalStateCountTotal ; The original state count total.
+	 * @param $originalStateCountTotal ; The original state count total.
 	 *
-	 * @return true if proportions are withing expected limits
+	 * @return bool true if proportions are withing expected limits
 	 */
-	private function crossCheckDiagonal($startI, $centerJ, $maxCount, $originalStateCountTotal){
+	private function crossCheckDiagonal(int $startI, int $centerJ, int $maxCount, int $originalStateCountTotal):bool{
 		$stateCount = $this->getCrossCheckStateCount();
 
 		// Start counting up, left from center finding black center mass
 		$i       = 0;
 		$startI  = (int)($startI);
 		$centerJ = (int)($centerJ);
+
 		while($startI >= $i && $centerJ >= $i && $this->image->get($centerJ - $i, $startI - $i)){
 			$stateCount[2]++;
 			$i++;
@@ -456,8 +488,7 @@ class FinderPatternFinder{
 		}
 
 		// Continue up, left finding white space
-		while($startI >= $i && $centerJ >= $i && !$this->image->get($centerJ - $i, $startI - $i)
-		      && $stateCount[1] <= $maxCount){
+		while($startI >= $i && $centerJ >= $i && !$this->image->get($centerJ - $i, $startI - $i) && $stateCount[1] <= $maxCount){
 			$stateCount[1]++;
 			$i++;
 		}
@@ -468,11 +499,11 @@ class FinderPatternFinder{
 		}
 
 		// Continue up, left finding black border
-		while($startI >= $i && $centerJ >= $i && $this->image->get($centerJ - $i, $startI - $i)
-		      && $stateCount[0] <= $maxCount){
+		while($startI >= $i && $centerJ >= $i && $this->image->get($centerJ - $i, $startI - $i) && $stateCount[0] <= $maxCount){
 			$stateCount[0]++;
 			$i++;
 		}
+
 		if($stateCount[0] > $maxCount){
 			return false;
 		}
@@ -492,8 +523,7 @@ class FinderPatternFinder{
 			return false;
 		}
 
-		while($startI + $i < $maxI && $centerJ + $i < $maxJ && !$this->image->get($centerJ + $i, $startI + $i)
-		      && $stateCount[3] < $maxCount){
+		while($startI + $i < $maxI && $centerJ + $i < $maxJ && !$this->image->get($centerJ + $i, $startI + $i) && $stateCount[3] < $maxCount){
 			$stateCount[3]++;
 			$i++;
 		}
@@ -516,26 +546,26 @@ class FinderPatternFinder{
 		// the original, assume it's a false positive
 		$stateCountTotal = $stateCount[0] + $stateCount[1] + $stateCount[2] + $stateCount[3] + $stateCount[4];
 
-		return
-			abs($stateCountTotal - $originalStateCountTotal) < 2 * $originalStateCountTotal
-			&& self::foundPatternCross($stateCount);
+		return \abs($stateCountTotal - $originalStateCountTotal) < 2 * $originalStateCountTotal && self::foundPatternCross($stateCount);
 	}
 
 	/**
-	 * @return true iff we have found at least 3 finder patterns that have been detected
+	 * @return bool true if we have found at least 3 finder patterns that have been detected
 	 *         at least {@link #CENTER_QUORUM} times each, and, the estimated module size of the
 	 *         candidates is "pretty similar"
 	 */
-	private function haveMultiplyConfirmedCenters(){
+	private function haveMultiplyConfirmedCenters():bool{
 		$confirmedCount  = 0;
 		$totalModuleSize = 0.0;
-		$max             = count($this->possibleCenters);
+		$max             = \count($this->possibleCenters);
+
 		foreach($this->possibleCenters as $pattern){
-			if($pattern->getCount() >= self::$CENTER_QUORUM){
+			if($pattern->getCount() >= self::CENTER_QUORUM){
 				$confirmedCount++;
 				$totalModuleSize += $pattern->getEstimatedModuleSize();
 			}
 		}
+
 		if($confirmedCount < 3){
 			return false;
 		}
@@ -545,29 +575,32 @@ class FinderPatternFinder{
 		// 5% of the total module size estimates, it's too much.
 		$average        = $totalModuleSize / (float)$max;
 		$totalDeviation = 0.0;
+
 		foreach($this->possibleCenters as $pattern){
-			$totalDeviation += abs($pattern->getEstimatedModuleSize() - $average);
+			$totalDeviation += \abs($pattern->getEstimatedModuleSize() - $average);
 		}
 
 		return $totalDeviation <= 0.05 * $totalModuleSize;
 	}
 
 	/**
-	 * @return number of rows we could safely skip during scanning, based on the first
+	 * @return int number of rows we could safely skip during scanning, based on the first
 	 *         two finder patterns that have been located. In some cases their position will
 	 *         allow us to infer that the third pattern must lie below a certain point farther
 	 *         down in the image.
 	 */
-	private function findRowSkip(){
-		$max = count($this->possibleCenters);
+	private function findRowSkip():int{
+		$max = \count($this->possibleCenters);
+
 		if($max <= 1){
 			return 0;
 		}
+
 		$firstConfirmedCenter = null;
 		foreach($this->possibleCenters as $center){
 
+			if($center->getCount() >= self::CENTER_QUORUM){
 
-			if($center->getCount() >= self::$CENTER_QUORUM){
 				if($firstConfirmedCenter == null){
 					$firstConfirmedCenter = $center;
 				}
@@ -579,8 +612,8 @@ class FinderPatternFinder{
 					// This is the case where you find top left last.
 					$this->hasSkipped = true;
 
-					return (int)((abs($firstConfirmedCenter->getX() - $center->getX()) -
-					              abs($firstConfirmedCenter->getY() - $center->getY())) / 2);
+					return (int)((\abs($firstConfirmedCenter->getX() - $center->getX()) -
+					              \abs($firstConfirmedCenter->getY() - $center->getY())) / 2);
 				}
 			}
 		}
@@ -589,13 +622,14 @@ class FinderPatternFinder{
 	}
 
 	/**
-	 * @return array the 3 best {@link FinderPattern}s from our list of candidates. The "best" are
+	 * @return \Zxing\Qrcode\Detector\FinderPattern[] the 3 best {@link FinderPattern}s from our list of candidates. The "best" are
 	 *         those that have been detected at least {@link #CENTER_QUORUM} times, and whose module
 	 *         size differs from the average among those patterns the least
 	 * @throws NotFoundException if 3 such finder patterns do not exist
 	 */
-	private function selectBestPatterns(){
-		$startSize = count($this->possibleCenters);
+	private function selectBestPatterns():array{
+		$startSize = \count($this->possibleCenters);
+
 		if($startSize < 3){
 			// Couldn't find enough finder patterns
 			throw new NotFoundException;
@@ -606,41 +640,45 @@ class FinderPatternFinder{
 			// But we can only afford to do so if we have at least 4 possibilities to choose from
 			$totalModuleSize = 0.0;
 			$square          = 0.0;
+
 			foreach($this->possibleCenters as $center){
 				$size            = $center->getEstimatedModuleSize();
 				$totalModuleSize += $size;
 				$square          += $size * $size;
 			}
+
 			$this->average = $totalModuleSize / (float)$startSize;
 			$stdDev        = (float)sqrt($square / $startSize - $this->average * $this->average);
 
-			usort($this->possibleCenters, [$this, 'FurthestFromAverageComparator']);
+			\usort($this->possibleCenters, [$this, 'FurthestFromAverageComparator']);
 
-			$limit = max(0.2 * $this->average, $stdDev);
+			$limit = \max(0.2 * $this->average, $stdDev);
 
-			for($i = 0; $i < count($this->possibleCenters) && count($this->possibleCenters) > 3; $i++){
+			for($i = 0; $i < \count($this->possibleCenters) && \count($this->possibleCenters) > 3; $i++){
 				$pattern = $this->possibleCenters[$i];
-				if(abs($pattern->getEstimatedModuleSize() - $this->average) > $limit){
+
+				if(\abs($pattern->getEstimatedModuleSize() - $this->average) > $limit){
 					unset($this->possibleCenters[$i]);//возможно что ключи меняются в java при вызове .remove(i) ???
-					$this->possibleCenters = array_values($this->possibleCenters);
+					$this->possibleCenters = \array_values($this->possibleCenters);
 					$i--;
 				}
 			}
 		}
 
-		if(count($this->possibleCenters) > 3){
+		if(\count($this->possibleCenters) > 3){
 			// Throw away all but those first size candidate points we found.
 
 			$totalModuleSize = 0.0;
+
 			foreach($this->possibleCenters as $possibleCenter){
 				$totalModuleSize += $possibleCenter->getEstimatedModuleSize();
 			}
 
-			$this->average = $totalModuleSize / (float)count($this->possibleCenters);
+			$this->average = $totalModuleSize / (float)\count($this->possibleCenters);
 
-			usort($this->possibleCenters, [$this, 'CenterComparator']);
+			\usort($this->possibleCenters, [$this, 'CenterComparator']);
 
-			array_slice($this->possibleCenters, 3, count($this->possibleCenters) - 3);
+			\array_slice($this->possibleCenters, 3, \count($this->possibleCenters) - 3);
 		}
 
 		return [$this->possibleCenters[0], $this->possibleCenters[1], $this->possibleCenters[2]];
@@ -649,49 +687,49 @@ class FinderPatternFinder{
 	/**
 	 * <p>Orders by furthest from average</p>
 	 */
-	public function FurthestFromAverageComparator($center1, $center2){
-
+	public function FurthestFromAverageComparator(FinderPattern $center1, FinderPattern $center2):int{
 		$dA = abs($center2->getEstimatedModuleSize() - $this->average);
 		$dB = abs($center1->getEstimatedModuleSize() - $this->average);
+
 		if($dA < $dB){
 			return -1;
 		}
-		elseif($dA == $dB){
+
+		if($dA === $dB){
 			return 0;
 		}
-		else{
-			return 1;
-		}
+
+		return 1;
 	}
 
-	public function CenterComparator($center1, $center2){
-		if($center2->getCount() == $center1->getCount()){
-			$dA = abs($center2->getEstimatedModuleSize() - $this->average);
-			$dB = abs($center1->getEstimatedModuleSize() - $this->average);
-			if($dA < $dB){
-				return 1;
-			}
-			elseif($dA == $dB){
-				return 0;
-			}
-			else{
-				return -1;
-			}
-		}
-		else{
+	public function CenterComparator(FinderPattern $center1, FinderPattern $center2):int{
+
+		if($center2->getCount() !== $center1->getCount()){
 			return $center2->getCount() - $center1->getCount();
 		}
+
+		$dA = abs($center2->getEstimatedModuleSize() - $this->average);
+		$dB = abs($center1->getEstimatedModuleSize() - $this->average);
+
+		if($dA < $dB){
+			return 1;
+		}
+
+		if($dA === $dB){
+			return 0;
+		}
+
+		return -1;
 	}
 
-	protected final function getImage(){
+	protected final function getImage():BitMatrix{
 		return $this->image;
 	}
 	/**
 	 * <p>Orders by {@link FinderPattern#getCount()}, descending.</p>
 	 */
 
-	//@Override
-	protected final function getPossibleCenters(){ //List<FinderPattern> getPossibleCenters()
+	protected final function getPossibleCenters():array{ //List<FinderPattern> getPossibleCenters()
 		return $this->possibleCenters;
 	}
 }

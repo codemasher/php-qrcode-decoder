@@ -25,25 +25,23 @@ namespace Zxing\Qrcode\Detector;
  */
 final class FinderPatternInfo{
 
-	private $bottomLeft;
-	private $topLeft;
-	private $topRight;
+	private FinderPattern $bottomLeft;
+	private FinderPattern $topLeft;
+	private FinderPattern $topRight;
 
-	public function __construct($patternCenters){
-		$this->bottomLeft = $patternCenters[0];
-		$this->topLeft    = $patternCenters[1];
-		$this->topRight   = $patternCenters[2];
+	public function __construct(array $patternCenters){
+		[$this->bottomLeft, $this->topLeft, $this->topRight] = $patternCenters;
 	}
 
-	public function getBottomLeft(){
+	public function getBottomLeft():FinderPattern{
 		return $this->bottomLeft;
 	}
 
-	public function getTopLeft(){
+	public function getTopLeft():FinderPattern{
 		return $this->topLeft;
 	}
 
-	public function getTopRight(){
+	public function getTopRight():FinderPattern{
 		return $this->topRight;
 	}
 }

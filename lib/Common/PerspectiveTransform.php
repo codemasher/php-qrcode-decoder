@@ -26,20 +26,20 @@ namespace Zxing\Common;
  */
 final class PerspectiveTransform{
 
-	private $a11;
-	private $a12;
-	private $a13;
-	private $a21;
-	private $a22;
-	private $a23;
-	private $a31;
-	private $a32;
-	private $a33;
+	private float $a11;
+	private float $a12;
+	private float $a13;
+	private float $a21;
+	private float $a22;
+	private float $a23;
+	private float $a31;
+	private float $a32;
+	private float $a33;
 
 	private function __construct(
-		$a11, $a21, $a31,
-		$a12, $a22, $a32,
-		$a13, $a23, $a33
+		float $a11, float $a21, float $a31,
+		float $a12, float $a22, float $a32,
+		float $a13, float $a23, float $a33
 	){
 		$this->a11 = $a11;
 		$this->a12 = $a12;
@@ -53,15 +53,15 @@ final class PerspectiveTransform{
 	}
 
 	public static function quadrilateralToQuadrilateral(
-		$x0, $y0,
-		$x1, $y1,
-		$x2, $y2,
-		$x3, $y3,
-		$x0p, $y0p,
-		$x1p, $y1p,
-		$x2p, $y2p,
-		$x3p, $y3p
-	){
+		float $x0, float $y0,
+		float $x1, float $y1,
+		float $x2, float $y2,
+		float $x3, float $y3,
+		float $x0p, float $y0p,
+		float $x1p, float $y1p,
+		float $x2p, float $y2p,
+		float $x3p, float $y3p
+	):PerspectiveTransform{
 
 		$qToS = self::quadrilateralToSquare($x0, $y0, $x1, $y1, $x2, $y2, $x3, $y3);
 		$sToQ = self::squareToQuadrilateral($x0p, $y0p, $x1p, $y1p, $x2p, $y2p, $x3p, $y3p);
@@ -70,18 +70,18 @@ final class PerspectiveTransform{
 	}
 
 	public static function quadrilateralToSquare(
-		$x0, $y0,
-		$x1, $y1,
-		$x2, $y2,
-		$x3, $y3
-	){
-// Here, the adjoint serves as the inverse:
+		float $x0, float $y0,
+		float $x1, float $y1,
+		float $x2, float $y2,
+		float $x3, float $y3
+	):PerspectiveTransform{
+		// Here, the adjoint serves as the inverse:
 		return self::squareToQuadrilateral($x0, $y0, $x1, $y1, $x2, $y2, $x3, $y3)->buildAdjoint();
 	}
 
-	public function buildAdjoint(){
-// Adjoint is the transpose of the cofactor matrix:
-		return new PerspectiveTransform(
+	public function buildAdjoint():PerspectiveTransform{
+		// Adjoint is the transpose of the cofactor matrix:
+		return new self(
 			$this->a22 * $this->a33 - $this->a23 * $this->a32,
 			$this->a23 * $this->a31 - $this->a21 * $this->a33,
 			$this->a21 * $this->a32 - $this->a22 * $this->a31,
@@ -95,16 +95,17 @@ final class PerspectiveTransform{
 	}
 
 	public static function squareToQuadrilateral(
-		$x0, $y0,
-		$x1, $y1,
-		$x2, $y2,
-		$x3, $y3
-	){
+		float $x0, float $y0,
+		float $x1, float $y1,
+		float $x2, float $y2,
+		float $x3, float $y3
+	):PerspectiveTransform{
 		$dx3 = $x0 - $x1 + $x2 - $x3;
 		$dy3 = $y0 - $y1 + $y2 - $y3;
-		if($dx3 == 0.0 && $dy3 == 0.0){
-// Affine
-			return new PerspectiveTransform(
+
+		if($dx3 === 0.0 && $dy3 === 0.0){
+			// Affine
+			return new self(
 				$x1 - $x0, $x2 - $x1, $x0,
 				$y1 - $y0, $y2 - $y1, $y0,
 				0.0, 0.0, 1.0
@@ -119,7 +120,7 @@ final class PerspectiveTransform{
 			$a13         = ($dx3 * $dy2 - $dx2 * $dy3) / $denominator;
 			$a23         = ($dx1 * $dy3 - $dx3 * $dy1) / $denominator;
 
-			return new PerspectiveTransform(
+			return new self(
 				$x1 - $x0 + $a13 * $x1, $x3 - $x0 + $a23 * $x3, $x0,
 				$y1 - $y0 + $a13 * $y1, $y3 - $y0 + $a23 * $y3, $y0,
 				$a13, $a23, 1.0
@@ -127,8 +128,8 @@ final class PerspectiveTransform{
 		}
 	}
 
-	public function times($other){
-		return new PerspectiveTransform(
+	public function times(PerspectiveTransform $other):PerspectiveTransform{
+		return new self(
 			$this->a11 * $other->a11 + $this->a21 * $other->a12 + $this->a31 * $other->a13,
 			$this->a11 * $other->a21 + $this->a21 * $other->a22 + $this->a31 * $other->a23,
 			$this->a11 * $other->a31 + $this->a21 * $other->a32 + $this->a31 * $other->a33,
@@ -142,13 +143,13 @@ final class PerspectiveTransform{
 
 	}
 
-	public function transformPoints(&$points, &$yValues = 0){
+	public function transformPoints(array &$points, array &$yValues = null):void{
 		if($yValues){
 			$this->transformPoints_($points, $yValues);
 
 			return;
 		}
-		$max = count($points);
+		$max = \count($points);
 		$a11 = $this->a11;
 		$a12 = $this->a12;
 		$a13 = $this->a13;
@@ -167,8 +168,8 @@ final class PerspectiveTransform{
 		}
 	}
 
-	public function transformPoints_(&$xValues, &$yValues){
-		$n = count($xValues);
+	public function transformPoints_(array &$xValues, array &$yValues):void{
+		$n = \count($xValues);
 		for($i = 0; $i < $n; $i++){
 			$x           = $xValues[$i];
 			$y           = $yValues[$i];

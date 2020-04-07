@@ -1,7 +1,7 @@
 <?php
 
 if(!function_exists('arraycopy')){
-	function arraycopy($srcArray, $srcPos, $destArray, $destPos, $length){
+	function arraycopy(array $srcArray, int $srcPos, array $destArray, int $destPos, int $length):array{
 		$srcArrayToCopy = array_slice($srcArray, $srcPos, $length);
 		array_splice($destArray, $destPos, $length, $srcArrayToCopy);
 
@@ -10,9 +10,10 @@ if(!function_exists('arraycopy')){
 }
 
 if(!function_exists('hashCode')){
-	function hashCode($s){
+	function hashCode(string $s):int{
 		$h   = 0;
 		$len = strlen($s);
+
 		for($i = 0; $i < $len; $i++){
 			$h = (31 * $h + ord($s[$i]));
 		}
@@ -23,11 +24,14 @@ if(!function_exists('hashCode')){
 
 if(!function_exists('numberOfTrailingZeros')){
 	function numberOfTrailingZeros($i){
+
 		if($i == 0){
 			return 32;
 		}
+
 		$num = 0;
-		while(($i & 1) == 0){
+
+		while(($i & 1) === 0){
 			$i >>= 1;
 			$num++;
 		}
@@ -37,8 +41,9 @@ if(!function_exists('numberOfTrailingZeros')){
 }
 
 if(!function_exists('uRShift')){
-	function uRShift($a, $b){
+	function uRShift(int $a, int $b):int{
 		static $mask = (8 * PHP_INT_SIZE - 1);
+
 		if($b === 0){
 			return $a;
 		}
@@ -62,34 +67,34 @@ function sdvig3($num,$count=1){//>>> 32 bit
 }
 */
 
-if(!function_exists('sdvig3')){
-	function sdvig3($a, $b){
+if(!\function_exists('sdvig3')){
+	function sdvig3(int $a, int $b){
+
 		if($a >= 0){
-			return bindec(decbin($a >> $b)); //simply right shift for positive number
+			return \bindec(\decbin($a >> $b)); //simply right shift for positive number
 		}
 
-		$bin = decbin($a >> $b);
+		$bin = \substr(\decbin($a >> $b), $b); // zero fill on the left side
 
-		$bin = substr($bin, $b); // zero fill on the left side
-
-		return bindec($bin);
+		return \bindec($bin);
 	}
 }
 
-if(!function_exists('floatToIntBits')){
-	function floatToIntBits($float_val){
+if(!\function_exists('floatToIntBits')){
+	function floatToIntBits(float $float_val):int{
 		$int = unpack('i', pack('f', $float_val));
 
 		return $int[1];
 	}
 }
 
-if(!function_exists('fill_array')){
-	function fill_array($index, $count, $value){
+if(!\function_exists('fill_array')){
+	function fill_array(int $index, int $count, $value):array{
+
 		if($count <= 0){
 			return [0];
 		}
 
-		return array_fill($index, $count, $value);
+		return \array_fill($index, $count, $value);
 	}
 }

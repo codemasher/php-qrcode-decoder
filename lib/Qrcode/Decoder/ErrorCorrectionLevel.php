@@ -24,6 +24,8 @@ use InvalidArgumentException;
  * defined by the QR code standard.</p>
  *
  * @author Sean Owen
+ *
+ * @todo
  */
 class ErrorCorrectionLevel{
 
@@ -31,7 +33,7 @@ class ErrorCorrectionLevel{
 	private        $bits;
 	private        $ordinal;
 
-	public function __construct($bits, $ordinal = 0){
+	public function __construct(int $bits, int $ordinal = 0){
 		$this->bits    = $bits;
 		$this->ordinal = $ordinal;
 	}

@@ -69,39 +69,43 @@ final class GenericGF{
 		$this->expTable = [];
 		$this->logTable = [];
 		$x              = 1;
+
 		for($i = 0; $i < $size; $i++){
 			$this->expTable[$i] = $x;
 			$x                  *= 2; // we're assuming the generator alpha is 2
+
 			if($x >= $size){
 				$x ^= $primitive;
 				$x &= $size - 1;
 			}
 		}
+
 		for($i = 0; $i < $size - 1; $i++){
 			$this->logTable[$this->expTable[$i]] = $i;
 		}
 		// logTable[0] == 0 but this should never be used
 		$this->zero = new GenericGFPoly($this, [0]);
 		$this->one  = new GenericGFPoly($this, [1]);
+
 	}
 
 	public static function Init(){
-		self::$AZTEC_DATA_12         = new GenericGF(0x1069, 4096, 1); // x^12 + x^6 + x^5 + x^3 + 1
-		self::$AZTEC_DATA_10         = new GenericGF(0x409, 1024, 1); // x^10 + x^3 + 1
-		self::$AZTEC_DATA_6          = new GenericGF(0x43, 64, 1); // x^6 + x + 1
-		self::$AZTEC_PARAM           = new GenericGF(0x13, 16, 1); // x^4 + x + 1
+#		self::$AZTEC_DATA_12         = new GenericGF(0x1069, 4096, 1); // x^12 + x^6 + x^5 + x^3 + 1
+#		self::$AZTEC_DATA_10         = new GenericGF(0x409, 1024, 1); // x^10 + x^3 + 1
+#		self::$AZTEC_DATA_6          = new GenericGF(0x43, 64, 1); // x^6 + x + 1
+#		self::$AZTEC_PARAM           = new GenericGF(0x13, 16, 1); // x^4 + x + 1
 		self::$QR_CODE_FIELD_256     = new GenericGF(0x011D, 256, 0); // x^8 + x^4 + x^3 + x^2 + 1
-		self::$DATA_MATRIX_FIELD_256 = new GenericGF(0x012D, 256, 1); // x^8 + x^5 + x^3 + x^2 + 1
-		self::$AZTEC_DATA_8          = self::$DATA_MATRIX_FIELD_256;
-		self::$MAXICODE_FIELD_64     = self::$AZTEC_DATA_6;
+#		self::$DATA_MATRIX_FIELD_256 = new GenericGF(0x012D, 256, 1); // x^8 + x^5 + x^3 + x^2 + 1
+#		self::$AZTEC_DATA_8          = self::$DATA_MATRIX_FIELD_256;
+#		self::$MAXICODE_FIELD_64     = self::$AZTEC_DATA_6;
 	}
 
 	/**
 	 * Implements both addition and subtraction -- they are the same in GF(size).
 	 *
-	 * @return sum/difference of a and b
+	 * @return int sum/difference of a and b
 	 */
-	public static function addOrSubtract($a, $b){
+	public static function addOrSubtract(int $a, int $b):int{
 		return $a ^ $b;
 	}
 
@@ -114,7 +118,7 @@ final class GenericGF{
 	}
 
 	/**
-	 * @return the monomial representing coefficient * x^degree
+	 * @return GenericGFPoly the monomial representing coefficient * x^degree
 	 */
 	public function buildMonomial($degree, $coefficient){
 		if($degree < 0){
@@ -139,8 +143,9 @@ final class GenericGF{
 	/**
 	 * @return base 2 log of a in GF(size)
 	 */
-	public function log($a){
-		if($a == 0){
+	public function log(int $a){
+
+		if($a === 0){
 			throw new InvalidArgumentException();
 		}
 

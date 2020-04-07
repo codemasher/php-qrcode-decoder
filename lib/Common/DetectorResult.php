@@ -26,19 +26,19 @@ namespace Zxing\Common;
  */
 class DetectorResult{
 
-	private $bits;
-	private $points;
+	private BitMatrix $bits;
+	private array $points;
 
-	public function __construct($bits, $points){
+	public function __construct(BitMatrix $bits, array $points){
 		$this->bits   = $bits;
 		$this->points = $points;
 	}
 
-	public final function getBits(){
+	public final function getBits():BitMatrix{
 		return $this->bits;
 	}
 
-	public final function getPoints(){
+	public final function getPoints():array{
 		return $this->points;
 	}
 }

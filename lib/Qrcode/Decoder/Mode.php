@@ -24,22 +24,24 @@ use InvalidArgumentException;
  * data can be encoded to bits in the QR code standard.</p>
  *
  * @author Sean Owen
+ *
+ * @todo
  */
 class Mode{
 
-	public static $TERMINATOR;
-	public static $NUMERIC;
-	public static $ALPHANUMERIC;
-	public static $STRUCTURED_APPEND;
-	public static $BYTE;
-	public static $ECI;
-	public static $KANJI;
-	public static $FNC1_FIRST_POSITION;
-	public static $FNC1_SECOND_POSITION;
-	public static $HANZI;
+	public static Mode $TERMINATOR;
+	public static Mode $NUMERIC;
+	public static Mode $ALPHANUMERIC;
+	public static Mode $STRUCTURED_APPEND;
+	public static Mode $BYTE;
+	public static Mode $ECI;
+	public static Mode $KANJI;
+	public static Mode $FNC1_FIRST_POSITION;
+	public static Mode $FNC1_SECOND_POSITION;
+	public static Mode $HANZI;
 
-	private $characterCountBitsForVersions;
-	private $bits;
+	private array $characterCountBitsForVersions;
+	private int $bits;
 
 	public function __construct($characterCountBitsForVersions, $bits){
 		$this->characterCountBitsForVersions = $characterCountBitsForVersions;
@@ -68,7 +70,7 @@ class Mode{
 	 * @return Mode encoded by these bits
 	 * @throws InvalidArgumentException if bits do not correspond to a known mode
 	 */
-	public static function forBits($bits){
+	public static function forBits($bits):Mode{
 		switch($bits){
 			case 0x0:
 				return self::$TERMINATOR;

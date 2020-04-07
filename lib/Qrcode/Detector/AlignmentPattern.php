@@ -27,10 +27,11 @@ use Zxing\ResultPoint;
  */
 final class AlignmentPattern extends ResultPoint{
 
-	private $estimatedModuleSize;
+	private float $estimatedModuleSize;
 
-	public function __construct($posX, $posY, $estimatedModuleSize){
+	public function __construct(float $posX, float $posY, float $estimatedModuleSize){
 		parent::__construct($posX, $posY);
+
 		$this->estimatedModuleSize = $estimatedModuleSize;
 	}
 
@@ -38,9 +39,10 @@ final class AlignmentPattern extends ResultPoint{
 	 * <p>Determines if this alignment pattern "about equals" an alignment pattern at the stated
 	 * position and size -- meaning, it is at nearly the same center with nearly the same size.</p>
 	 */
-	public function aboutEquals($moduleSize, $i, $j){
-		if(abs($i - $this->getY()) <= $moduleSize && abs($j - $this->getX()) <= $moduleSize){
-			$moduleSizeDiff = abs($moduleSize - $this->estimatedModuleSize);
+	public function aboutEquals(float $moduleSize, int $i, int $j):bool{
+
+		if(\abs($i - $this->y) <= $moduleSize && \abs($j - $this->x) <= $moduleSize){
+			$moduleSizeDiff = \abs($moduleSize - $this->estimatedModuleSize);
 
 			return $moduleSizeDiff <= 1.0 || $moduleSizeDiff <= $this->estimatedModuleSize;
 		}
@@ -52,11 +54,11 @@ final class AlignmentPattern extends ResultPoint{
 	 * Combines this object's current estimate of a finder pattern position and module size
 	 * with a new estimate. It returns a new {@code FinderPattern} containing an average of the two.
 	 */
-	public function combineEstimate($i, $j, $newModuleSize){
-		$combinedX          = ($this->getX() + $j) / 2.0;
-		$combinedY          = ($this->getY() + $i) / 2.0;
+	public function combineEstimate(int $i, int $j, float $newModuleSize):AlignmentPattern{
+		$combinedX          = ($this->x + $j) / 2.0;
+		$combinedY          = ($this->y + $i) / 2.0;
 		$combinedModuleSize = ($this->estimatedModuleSize + $newModuleSize) / 2.0;
 
-		return new AlignmentPattern($combinedX, $combinedY, $combinedModuleSize);
+		return new self($combinedX, $combinedY, $combinedModuleSize);
 	}
 }

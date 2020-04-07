@@ -4,14 +4,21 @@ namespace Khanamiryan\QrCodeTests;
 
 use Zxing\QrReader;
 
-class QrReaderTest extends \PHPUnit\Framework\TestCase
-{
+class QrReaderTest extends \PHPUnit\Framework\TestCase{
 
-    public function testText1()
-    {
-        $image = __DIR__ . "/qrcodes/hello_world.png";
+	public function QRCodeProvider():array{
+		return [
+			['hello_world.png', 'Hello world!'],
+			['url.png', 'https://smiley.codes/qrcode/'],
+		];
+	}
 
-        $qrcode = new QrReader($image);
-        $this->assertSame("Hello world!", $qrcode->text());
-    }
+	/**
+	 * @dataProvider QRCodeProvider
+	 */
+	public function testText(string $img, string $expected):void{
+		$qrcode = new QrReader(__DIR__.'/qrcodes/'.$img);
+
+		$this::assertSame($expected, $qrcode->text());
+	}
 }

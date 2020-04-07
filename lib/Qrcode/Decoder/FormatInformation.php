@@ -163,12 +163,12 @@ final class FormatInformation{
 		return $this->dataMask;
 	}
 
-	//@Override
+
 	public function hashCode(){
 		return ($this->errorCorrectionLevel->ordinal() << 3) | (int)($this->dataMask);
 	}
 
-	//@Override
+
 	public function equals($o){
 		if(!($o instanceof FormatInformation)){
 			return false;

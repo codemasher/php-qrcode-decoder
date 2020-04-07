@@ -107,7 +107,7 @@ final class CharacterSetECI{
 		try{
 			self::setName($value);
 
-			return new self($value);
+			return new self($value);// ???
 		}
 		catch(UnexpectedValueException $e){
 			return null;

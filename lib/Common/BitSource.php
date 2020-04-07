@@ -30,42 +30,43 @@ use InvalidArgumentException;
  */
 final class BitSource{
 
-	private $bytes;
-	private $byteOffset = 0;
-	private $bitOffset  = 0;
+	private array $bytes;
+	private int   $byteOffset = 0;
+	private int   $bitOffset  = 0;
 
 	/**
-	 * @param bytes bytes from which this will read bits. Bits will be read from the first byte first.
-	 *              Bits are read within a byte from most-significant to least-significant bit.
+	 * @param array $bytes bytes from which this will read bits. Bits will be read from the first byte first.
+	 *                     Bits are read within a byte from most-significant to least-significant bit.
 	 */
-	public function __construct($bytes){
+	public function __construct(array $bytes){
 		$this->bytes = $bytes;
 	}
 
 	/**
-	 * @return index of next bit in current byte which would be read by the next call to {@link #readBits(int)}.
+	 * @return int index of next bit in current byte which would be read by the next call to {@link #readBits(int)}.
 	 */
-	public function getBitOffset(){
+	public function getBitOffset():int{
 		return $this->bitOffset;
 	}
 
 	/**
-	 * @return index of next byte in input byte array which would be read by the next call to {@link #readBits(int)}.
+	 * @return int index of next byte in input byte array which would be read by the next call to {@link #readBits(int)}.
 	 */
-	public function getByteOffset(){
+	public function getByteOffset():int{
 		return $this->byteOffset;
 	}
 
 	/**
-	 * @param numBits number of bits to read
+	 * @param int $numBits number of bits to read
 	 *
 	 * @return int representing the bits read. The bits will appear as the least-significant
 	 *         bits of the int
 	 * @throws InvalidArgumentException if numBits isn't in [1,32] or more than is available
 	 */
-	public function readBits($numBits){
+	public function readBits(int $numBits):int{
+
 		if($numBits < 1 || $numBits > 32 || $numBits > $this->available()){
-			throw new InvalidArgumentException(strval($numBits));
+			throw new InvalidArgumentException(\strval($numBits));
 		}
 
 		$result = 0;
@@ -79,6 +80,7 @@ final class BitSource{
 			$result          = ($this->bytes[$this->byteOffset] & $mask) >> $bitsToNotRead;
 			$numBits         -= $toRead;
 			$this->bitOffset += $toRead;
+
 			if($this->bitOffset == 8){
 				$this->bitOffset = 0;
 				$this->byteOffset++;
@@ -87,6 +89,7 @@ final class BitSource{
 
 		// Next read whole bytes
 		if($numBits > 0){
+
 			while($numBits >= 8){
 				$result = ($result << 8) | ($this->bytes[$this->byteOffset] & 0xFF);
 				$this->byteOffset++;
@@ -106,9 +109,9 @@ final class BitSource{
 	}
 
 	/**
-	 * @return number of bits that can be read successfully
+	 * @return int number of bits that can be read successfully
 	 */
-	public function available(){
-		return 8 * (count($this->bytes) - $this->byteOffset) - $this->bitOffset;
+	public function available():int{
+		return 8 * (\count($this->bytes) - $this->byteOffset) - $this->bitOffset;
 	}
 }

@@ -19,10 +19,6 @@ namespace Zxing\Common\Detector;
 
 final class MathUtils{
 
-	private function __construct(){
-
-	}
-
 	/**
 	 * Ends up being a bit faster than {@link Math#round(float)}. This merely rounds its
 	 * argument to the nearest int, where x.5 rounds up to x+1. Semantics of this shortcut
@@ -33,14 +29,14 @@ final class MathUtils{
 	 *
 	 * @return int $nearest {@code int}
 	 */
-	public static function round($d){
+	public static function round(float $d):int{
 		return (int)($d + ($d < 0.0 ? -0.5 : 0.5));
 	}
 
-	public static function distance($aX, $aY, $bX, $bY){
+	public static function distance(int $aX, int $aY, int $bX, int $bY):float{
 		$xDiff = $aX - $bX;
 		$yDiff = $aY - $bY;
 
-		return (float)sqrt($xDiff * $xDiff + $yDiff * $yDiff);
+		return \sqrt($xDiff * $xDiff + $yDiff * $yDiff);
 	}
 }

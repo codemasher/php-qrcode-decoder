@@ -26,23 +26,23 @@ namespace Zxing\Common;
  */
 final class DecoderResult{
 
-	private $rawBytes;
-	private $text;
-	private $byteSegments;
-	private $ecLevel;
+	private array $rawBytes;
+	private string $text;
+	private array $byteSegments;
+	private string $ecLevel;
 	private $errorsCorrected;
 	private $erasures;
 	private $other;
-	private $structuredAppendParity;
-	private $structuredAppendSequenceNumber;
+	private int $structuredAppendParity;
+	private int $structuredAppendSequenceNumber;
 
 	public function __construct(
-		$rawBytes,
-		$text,
-		$byteSegments,
-		$ecLevel,
-		$saSequence = -1,
-		$saParity = -1
+		array $rawBytes,
+		string $text,
+		array $byteSegments,
+		string $ecLevel,
+		int $saSequence = -1,
+		int $saParity = -1
 	){
 		$this->rawBytes                       = $rawBytes;
 		$this->text                           = $text;
@@ -52,19 +52,19 @@ final class DecoderResult{
 		$this->structuredAppendSequenceNumber = $saSequence;
 	}
 
-	public function getRawBytes(){
+	public function getRawBytes():array{
 		return $this->rawBytes;
 	}
 
-	public function getText(){
+	public function getText():string{
 		return $this->text;
 	}
 
-	public function getByteSegments(){
+	public function getByteSegments():array{
 		return $this->byteSegments;
 	}
 
-	public function getECLevel(){
+	public function getECLevel():string{
 		return $this->ecLevel;
 	}
 
@@ -92,11 +92,11 @@ final class DecoderResult{
 		$this->other = $other;
 	}
 
-	public function hasStructuredAppend(){
+	public function hasStructuredAppend():bool{
 		return $this->structuredAppendParity >= 0 && $this->structuredAppendSequenceNumber >= 0;
 	}
 
-	public function getStructuredAppendParity(){
+	public function getStructuredAppendParity():int{
 		return $this->structuredAppendParity;
 	}
 
