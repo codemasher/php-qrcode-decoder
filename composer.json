@@ -3,9 +3,7 @@
 	"type": "library",
 	"description": "QR code decoder / reader",
 	"keywords": [
-		"qr",
-		"zxing",
-		"barcode"
+		"qr", "zxing", "barcode", "QR code", "qrcode", "qrcode-reader", "phpqrcode"
 	],
 	"homepage": "https://github.com/codemasher/php-qrcode-decoder",
 	"license": "MIT",
@@ -28,12 +26,14 @@
 		}
 	],
 	"require": {
-		"php": "^7.4",
+		"php": "^7.4 || ^8.0",
 		"ext-gd": "*",
-		"ext-iconv": "*"
+		"ext-iconv": "*",
+		"ext-mbstring": "*"
 	},
 	"require-dev": {
-		"phpunit/phpunit": "^9.0"
+		"phpunit/phpunit": "^9.4",
+		"chillerlan/php-qrcode": "^4.2"
 	},
 	"autoload": {
 		"psr-4": {

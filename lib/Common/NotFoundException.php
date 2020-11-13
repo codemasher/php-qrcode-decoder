@@ -15,17 +15,14 @@
 * limitations under the License.
 */
 
-namespace Zxing;
+namespace Zxing\Common;
 
-use Exception;
+use Zxing\ReaderException;
 
 /**
- * The general exception class throw when something goes wrong during decoding of a barcode.
- * This includes, but is not limited to, failing checksums / error correction algorithms, being
- * unable to locate finder timing patterns, and so on.
+ * Thrown when a barcode was not found in the image. It might have been
+ * partially detected but could not be confirmed.
  *
  * @author Sean Owen
  */
-class ReaderException extends Exception{
-
-}
+class NotFoundException extends ReaderException{}

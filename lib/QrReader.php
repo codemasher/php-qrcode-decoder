@@ -2,10 +2,8 @@
 
 namespace Zxing;
 
-use Imagick;
-use InvalidArgumentException;
-use Zxing\Common\HybridBinarizer;
-use Zxing\Qrcode\QRCodeReader;
+use Imagick, InvalidArgumentException;
+use Zxing\Decoder\{Decoder, GDLuminanceSource, IMagickLuminanceSource, LuminanceSource, Result};
 
 final class QrReader{
 
@@ -13,99 +11,47 @@ final class QrReader{
 	public const SOURCE_TYPE_BLOB     = 'blob';
 	public const SOURCE_TYPE_RESOURCE = 'resource';
 
-	private BinaryBitmap $bitmap;
-	private QRCodeReader $reader;
-	private ?Result      $result = null;
+	private LuminanceSource $source;
 
-	public function __construct($imgSource, string $sourceType = QrReader::SOURCE_TYPE_FILE, bool $useImagickIfAvailable = true){
+	public function __construct($imgSource, string $sourceType = self::SOURCE_TYPE_FILE, bool $useImagickIfAvailable = true){
+		$useImagickIfAvailable = $useImagickIfAvailable && \extension_loaded('imagick');
 
-		if(!\in_array($sourceType, [self::SOURCE_TYPE_FILE, self::SOURCE_TYPE_BLOB, self::SOURCE_TYPE_RESOURCE,], true)){
+		if($sourceType === self::SOURCE_TYPE_FILE){
+
+			if($useImagickIfAvailable){
+				$im = new Imagick;
+				$im->readImage($imgSource);
+			}
+			else{
+				$im = \imagecreatefromstring(\file_get_contents($imgSource));
+			}
+
+		}
+		elseif($sourceType === self::SOURCE_TYPE_BLOB){
+
+			if($useImagickIfAvailable){
+				$im = new Imagick;
+				$im->readImageBlob($imgSource);
+			}
+			else{
+				$im = \imagecreatefromstring($imgSource);
+			}
+
+		}
+		elseif($sourceType === self::SOURCE_TYPE_RESOURCE){
+			$im = $imgSource;
+		}
+		else{
 			throw new InvalidArgumentException('Invalid image source.');
 		}
 
-		$im = null;
-
-		switch($sourceType){
-			case QrReader::SOURCE_TYPE_FILE:
-				if($useImagickIfAvailable && \extension_loaded('imagick')){
-					$im = new Imagick;
-					$im->readImage($imgSource);
-				}
-				else{
-					$image = \file_get_contents($imgSource);
-					$im    = \imagecreatefromstring($image);
-				}
-				break;
-
-			case QrReader::SOURCE_TYPE_BLOB:
-
-				if($useImagickIfAvailable && \extension_loaded('imagick')){
-					$im = new Imagick;
-					$im->readImageBlob($imgSource);
-				}
-				else{
-					$im = \imagecreatefromstring($imgSource);
-				}
-
-				break;
-
-			case QrReader::SOURCE_TYPE_RESOURCE:
-				$im = $imgSource;
-
-				if($useImagickIfAvailable && \extension_loaded('imagick')){
-					$useImagickIfAvailable = true;
-				}
-				else{
-					$useImagickIfAvailable = false;
-				}
-
-				break;
-		}
-
-		if($useImagickIfAvailable && \extension_loaded('imagick')){
-
-			if(!$im instanceof Imagick){
-				throw new InvalidArgumentException('Invalid image source.');
-			}
-
-			$width  = $im->getImageWidth();
-			$height = $im->getImageHeight();
-			$source = new IMagickLuminanceSource($im, $width, $height);
-		}
-		else{
-
-			if(!\is_resource($im)){
-				throw new InvalidArgumentException('Invalid image source.');
-			}
-
-			$width  = \imagesx($im);
-			$height = \imagesy($im);
-			$source = new GDLuminanceSource($im, $width, $height);
-		}
-
-		$histo        = new HybridBinarizer($source);
-		$this->bitmap = new BinaryBitmap($histo);
-		$this->reader = new QRCodeReader();
+		$this->source = $useImagickIfAvailable
+			? new IMagickLuminanceSource($im, $im->getImageWidth(), $im->getImageHeight())
+			: new GDLuminanceSource($im, \imagesx($im), \imagesy($im));
 	}
 
 	public function decode():?Result{
-		$this->result = $this->reader->decode($this->bitmap);
-
-		return $this->result;
+		return (new Decoder)->decode($this->source);
 	}
 
-	public function text():string{
-		$this->decode();
-
-		if(\method_exists($this->result, 'toString')){
-			return $this->result->toString();
-		}
-
-		// @todo: throw if not stringable
-		return $this->result;
-	}
-
-	public function getResult():?Result{
-		return $this->result;
-	}
 }

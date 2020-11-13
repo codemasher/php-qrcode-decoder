@@ -15,17 +15,30 @@
 * limitations under the License.
 */
 
-namespace Zxing;
-
-use Exception;
+namespace Zxing\Detector;
 
 /**
- * The general exception class throw when something goes wrong during decoding of a barcode.
- * This includes, but is not limited to, failing checksums / error correction algorithms, being
- * unable to locate finder timing patterns, and so on.
+ * <p>Encapsulates a point of interest in an image containing a barcode. Typically, this
+ * would be the location of a finder pattern or the corner of the barcode, for example.</p>
  *
  * @author Sean Owen
  */
-class ReaderException extends Exception{
+class ResultPoint{
+
+	protected float $x;
+	protected float $y;
+
+	public function __construct(float $x, float $y){
+		$this->x = $x;
+		$this->y = $y;
+	}
+
+	final public function getX():float{
+		return (float)$this->x;
+	}
+
+	final public function getY():float{
+		return (float)$this->y;
+	}
 
 }
