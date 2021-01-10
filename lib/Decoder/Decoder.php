@@ -148,10 +148,10 @@ final class Decoder{
 		foreach($dataBlocks as $dataBlock){
 			[$numDataCodewords, $codewordBytes] = $dataBlock;
 
-			$this->correctErrors($codewordBytes, $numDataCodewords);
+			$corrected = $this->correctErrors($codewordBytes, $numDataCodewords);
 
 			for($i = 0; $i < $numDataCodewords; $i++){
-				$resultBytes[$resultOffset++] = $codewordBytes[$i];
+				$resultBytes[$resultOffset++] = $corrected[$i];
 			}
 		}
 
@@ -246,7 +246,7 @@ final class Decoder{
 	 * @param array $codewordBytes    data and error correction codewords
 	 * @param int   $numDataCodewords number of codewords that are data bytes
 	 */
-	private function correctErrors(array &$codewordBytes, int $numDataCodewords){
+	private function correctErrors(array $codewordBytes, int $numDataCodewords):array{
 		$numCodewords = \count($codewordBytes);
 		// First read into an array of ints
 		$codewordsInts = \array_fill(0, $numCodewords, 0);
@@ -255,13 +255,15 @@ final class Decoder{
 			$codewordsInts[$i] = $codewordBytes[$i] & 0xFF;
 		}
 
-		(new ReedSolomonDecoder)->decode($codewordsInts, (\count($codewordBytes) - $numDataCodewords));
+		$decoded = (new ReedSolomonDecoder)->decode($codewordsInts, (\count($codewordBytes) - $numDataCodewords));
 
 		// Copy back into array of bytes -- only need to worry about the bytes that were data
 		// We don't care about errors in the error-correction codewords
 		for($i = 0; $i < $numDataCodewords; $i++){
-			$codewordBytes[$i] = $codewordsInts[$i];
+			$codewordBytes[$i] = $decoded[$i];
 		}
+
+		return $codewordBytes;
 	}
 
 }

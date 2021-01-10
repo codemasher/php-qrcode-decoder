@@ -51,7 +51,7 @@ final class ReedSolomonDecoder{
 	 *
 	 * @throws ReedSolomonException if decoding fails for any reason
 	 */
-	public function decode(array &$received, int $twoS):void{
+	public function decode(array $received, int $twoS):array{
 		$poly                 = new GenericGFPoly($received);
 		$syndromeCoefficients = \array_fill(0, $twoS, 0);
 		$noError              = true;
@@ -66,7 +66,7 @@ final class ReedSolomonDecoder{
 		}
 
 		if($noError){
-			return;
+			return $received;
 		}
 
 		$syndrome            = new GenericGFPoly($syndromeCoefficients);
@@ -87,6 +87,7 @@ final class ReedSolomonDecoder{
 			$received[$position] = GF256::addOrSubtract($received[$position], $errorMagnitudes[$i]);
 		}
 
+		return $received;
 	}
 
 	/**

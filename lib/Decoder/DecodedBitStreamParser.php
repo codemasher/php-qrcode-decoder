@@ -44,19 +44,23 @@ final class DecodedBitStreamParser{
 
 	private const GB2312_SUBSET = 1;
 
+	private string $result;
+	private array  $byteSegments;
+
 	/**
 	 * @throws \Zxing\Decoder\FormatException
 	 */
 	public function decode(array $bytes, Version $version, EccLevel $ecLevel):DecoderResult{
 		$bits           = new BitSource($bytes);
-		$result         = '';
-		$byteSegments   = [];
 		$symbolSequence = -1;
 		$parityData     = -1;
 		$versionNumber  = $version->getVersionNumber();
 
 		$currentCharacterSetECI = null;
 		$fc1InEffect            = false;
+
+		$this->result       = '';
+		$this->byteSegments = [];
 
 		// While still another segment to read...
 		while($bits->available() >= 4){
@@ -103,16 +107,16 @@ final class DecodedBitStreamParser{
 					// How many characters will follow, encoded in this mode?
 					$count = $bits->readBits(Mode::getLengthBitsForVersion($mode, $versionNumber));
 					if($mode === Mode::DATA_NUMBER){
-						$this->decodeNumericSegment($bits, $result, $count);
+						$this->decodeNumericSegment($bits, $count);
 					}
 					elseif($mode === Mode::DATA_ALPHANUM){
-						$this->decodeAlphanumericSegment($bits, $result, $count, $fc1InEffect);
+						$this->decodeAlphanumericSegment($bits, $count, $fc1InEffect);
 					}
 					elseif($mode === Mode::DATA_BYTE){
-						$this->decodeByteSegment($bits, $result, $count, $byteSegments, $currentCharacterSetECI);
+						$this->decodeByteSegment($bits, $count, $currentCharacterSetECI);
 					}
 					elseif($mode === Mode::DATA_KANJI){
-						$this->decodeKanjiSegment($bits, $result, $count);
+						$this->decodeKanjiSegment($bits, $count);
 					}
 					else{
 						throw new FormatException();
@@ -121,7 +125,7 @@ final class DecodedBitStreamParser{
 			}
 		}
 
-		return new DecoderResult($bytes, $result, $byteSegments, (string)$ecLevel, $symbolSequence, $parityData);
+		return new DecoderResult($bytes, $this->result, $this->byteSegments, (string)$ecLevel, $symbolSequence, $parityData);
 	}
 
 	/**
@@ -157,7 +161,7 @@ final class DecodedBitStreamParser{
 	 *
 	 * @throws \Zxing\Decoder\FormatException
 	 */
-	private function decodeHanziSegment(BitSource $bits, string &$result, int $count):void{
+	private function decodeHanziSegment(BitSource $bits, int $count):void{
 		// Don't crash trying to read more bits than we have available.
 		if($count * 13 > $bits->available()){
 			throw new FormatException();
@@ -182,13 +186,13 @@ final class DecodedBitStreamParser{
 			$offset              += 2;
 			$count--;
 		}
-		$result .= \mb_convert_encoding(\implode($buffer), 'UTF-8', 'GB2312');
+		$this->result .= \mb_convert_encoding(\implode($buffer), 'UTF-8', 'GB2312');
 	}
 
 	/**
 	 * @throws \Zxing\Decoder\FormatException
 	 */
-	private function decodeNumericSegment(BitSource $bits, string &$result, int $count):void{
+	private function decodeNumericSegment(BitSource $bits, int $count):void{
 		// Read three digits at a time
 		while($count >= 3){
 			// Each 10 bits encodes three digits
@@ -199,10 +203,10 @@ final class DecodedBitStreamParser{
 			if($threeDigitsBits >= 1000){
 				throw new FormatException();
 			}
-			$result .= $this->toAlphaNumericChar($threeDigitsBits / 100);
-			$result .= $this->toAlphaNumericChar(($threeDigitsBits / 10) % 10);
-			$result .= $this->toAlphaNumericChar($threeDigitsBits % 10);
-			$count  -= 3;
+			$this->result .= $this->toAlphaNumericChar($threeDigitsBits / 100);
+			$this->result .= $this->toAlphaNumericChar(($threeDigitsBits / 10) % 10);
+			$this->result .= $this->toAlphaNumericChar($threeDigitsBits % 10);
+			$count        -= 3;
 		}
 		if($count === 2){
 			// Two digits left over to read, encoded in 7 bits
@@ -213,8 +217,8 @@ final class DecodedBitStreamParser{
 			if($twoDigitsBits >= 100){
 				throw new FormatException();
 			}
-			$result .= $this->toAlphaNumericChar($twoDigitsBits / 10);
-			$result .= $this->toAlphaNumericChar($twoDigitsBits % 10);
+			$this->result .= $this->toAlphaNumericChar($twoDigitsBits / 10);
+			$this->result .= $this->toAlphaNumericChar($twoDigitsBits % 10);
 		}
 		elseif($count === 1){
 			// One digit left over to read
@@ -225,7 +229,7 @@ final class DecodedBitStreamParser{
 			if($digitBits >= 10){
 				throw new FormatException();
 			}
-			$result .= $this->toAlphaNumericChar($digitBits);
+			$this->result .= $this->toAlphaNumericChar($digitBits);
 		}
 	}
 
@@ -244,16 +248,16 @@ final class DecodedBitStreamParser{
 	/**
 	 * @throws \Zxing\Decoder\FormatException
 	 */
-	private function decodeAlphanumericSegment(BitSource $bits, string &$result, int $count, bool $fc1InEffect):void{
+	private function decodeAlphanumericSegment(BitSource $bits, int $count, bool $fc1InEffect):void{
 		// Read two characters at a time
-		$start = \strlen($result);
+		$start = \strlen($this->result);
 		while($count > 1){
 			if($bits->available() < 11){
 				throw new FormatException();
 			}
 			$nextTwoCharsBits = $bits->readBits(11);
-			$result           .= $this->toAlphaNumericChar($nextTwoCharsBits / 45);
-			$result           .= $this->toAlphaNumericChar($nextTwoCharsBits % 45);
+			$this->result     .= $this->toAlphaNumericChar($nextTwoCharsBits / 45);
+			$this->result     .= $this->toAlphaNumericChar($nextTwoCharsBits % 45);
 			$count            -= 2;
 		}
 		if($count == 1){
@@ -261,20 +265,20 @@ final class DecodedBitStreamParser{
 			if($bits->available() < 6){
 				throw new FormatException();
 			}
-			$result .= $this->toAlphaNumericChar($bits->readBits(6));
+			$this->result .= $this->toAlphaNumericChar($bits->readBits(6));
 		}
 		// See section 6.4.8.1, 6.4.8.2
 		if($fc1InEffect){
 			// We need to massage the result a bit if in an FNC1 mode:
-			for($i = $start; $i < \strlen($result); $i++){
-				if($result[$i] === '%'){
-					if($i < strlen($result) - 1 && $result[$i + 1] === '%'){
+			for($i = $start; $i < \strlen($this->result); $i++){
+				if($this->result[$i] === '%'){
+					if($i < strlen($this->result) - 1 && $this->result[$i + 1] === '%'){
 						// %% is rendered as %
-						$result = \substr_replace($result, '', $i + 1, 1);//deleteCharAt(i + 1);
+						$this->result = \substr_replace($this->result, '', $i + 1, 1);//deleteCharAt(i + 1);
 					}
 #					else{
 					// In alpha mode, % should be converted to FNC1 separator 0x1D @todo
-#						$result .= setCharAt($i, \chr(0x1D)); // ???
+#						$this->result .= setCharAt($i, \chr(0x1D)); // ???
 #					}
 				}
 			}
@@ -282,16 +286,10 @@ final class DecodedBitStreamParser{
 	}
 
 	/**
-	 * @todo: why is this so slow??? and why is it slower with GD than Imagick???
 	 * @throws \Zxing\Decoder\FormatException
+	 * @todo: why is this so slow??? and why is it slower with GD than Imagick???
 	 */
-	private function decodeByteSegment(
-		BitSource $bits,
-		string &$result,
-		int $count,
-		array &$byteSegments,
-		CharacterSetECI $currentCharacterSetECI = null
-	):void{
+	private function decodeByteSegment(BitSource $bits, int $count, CharacterSetECI $currentCharacterSetECI = null):void{
 		// Don't crash trying to read more bits than we have available.
 		if(8 * $count > $bits->available()){
 			throw new FormatException();
@@ -316,16 +314,16 @@ final class DecodedBitStreamParser{
 		else{
 #			$encoding = $currentCharacterSetECI->name();
 		}
-#		$result.= mb_convert_encoding($text ,$encoding);//(new String(readBytes, encoding));
-		$result .= $text;//(new String(readBytes, encoding));
+#		$this->result .= mb_convert_encoding($text ,$encoding);//(new String(readBytes, encoding));
+		$this->result .= $text;//(new String(readBytes, encoding));
 
-		$byteSegments = \array_merge($byteSegments, $readBytes);
+		$this->byteSegments = \array_merge($this->byteSegments, $readBytes);
 	}
 
 	/**
 	 * @throws \Zxing\Decoder\FormatException
 	 */
-	private function decodeKanjiSegment(BitSource $bits, string &$result, int $count):void{
+	private function decodeKanjiSegment(BitSource $bits, int $count):void{
 		// Don't crash trying to read more bits than we have available.
 		if($count * 13 > $bits->available()){
 			throw new FormatException();
@@ -351,7 +349,7 @@ final class DecodedBitStreamParser{
 		}
 
 		// Shift_JIS may not be supported in some environments:
-		$result .= \mb_convert_encoding(\implode($buffer), 'UTF-8', 'SJIS');
+		$this->result .= \mb_convert_encoding(\implode($buffer), 'UTF-8', 'SJIS');
 	}
 
 }
