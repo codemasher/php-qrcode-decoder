@@ -25,15 +25,17 @@
 			"homepage":"https://github.com/chillerlan/php-qrcode/graphs/contributors"
 		}
 	],
+	"minimum-stability": "dev",
+	"prefer-stable": true,
 	"require": {
 		"php": "^7.4 || ^8.0",
 		"ext-gd": "*",
 		"ext-iconv": "*",
-		"ext-mbstring": "*"
+		"ext-mbstring": "*",
+		"chillerlan/php-qrcode": "v5.x-dev"
 	},
 	"require-dev": {
-		"phpunit/phpunit": "^9.4",
-		"chillerlan/php-qrcode": "^4.2"
+		"phpunit/phpunit": "^9.5"
 	},
 	"autoload": {
 		"psr-4": {
