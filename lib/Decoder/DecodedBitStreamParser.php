@@ -173,7 +173,7 @@ final class DecodedBitStreamParser{
 			$twoBytes          = $bits->readBits(13);
 			$assembledTwoBytes = (($twoBytes / 0x060) << 8) | ($twoBytes % 0x060);
 
-			$assembledTwoBytes += ($assembledTwoBytes < 0x003BF)
+			$assembledTwoBytes += ($assembledTwoBytes < 0x00A00)
 				? 0x0A1A1  // In the 0xA1A1 to 0xAAFE range
 				: 0x0A6A1; // In the 0xB0A1 to 0xFAFE range
 

@@ -128,7 +128,7 @@ final class Decoder{
 	 */
 	private function decodeParser(BitMatrixParser $parser):DecoderResult{
 		$version = $parser->readVersion();
-		$ecLevel = $parser->readFormatInformation()->getErrorCorrectionLevel();
+		$ecLevel = new EccLevel($parser->readFormatInformation()->getErrorCorrectionLevel());
 
 		// Read codewords
 		$codewords = $parser->readCodewords();
@@ -165,13 +165,13 @@ final class Decoder{
 	 * method will separate the data into original blocks.</p>
 	 *
 	 * @param array                              $rawCodewords bytes as read directly from the QR Code
-	 * @param \Zxing\Common\Version              $version      version of the QR Code
-	 * @param \Zxing\Common\ErrorCorrectionLevel $ecLevel      error-correction level of the QR Code
+	 * @param \chillerlan\QRCode\Common\Version  $version      version of the QR Code
+	 * @param \chillerlan\QRCode\Common\EccLevel $ecLevel      error-correction level of the QR Code
 	 *
 	 * @return array DataBlocks containing original bytes, "de-interleaved" from representation in the QR Code
 	 * @throws \InvalidArgumentException
 	 */
-	private function getDataBlocks(array $rawCodewords, Version $version, ErrorCorrectionLevel $ecLevel):array{
+	private function getDataBlocks(array $rawCodewords, Version $version, EccLevel $ecLevel):array{
 
 		if(\count($rawCodewords) !== $version->getTotalCodewords()){
 			throw new InvalidArgumentException('$rawCodewords differ from total codewords for version');
@@ -179,7 +179,7 @@ final class Decoder{
 
 		// Figure out the number and size of data blocks used by this version and
 		// error correction level
-		[$numEccCodewords, $eccBlocks] = Version::ECC_DATA[$version->getVersionNumber()][$ecLevel->getOrdinal()];
+		[$numEccCodewords, $eccBlocks] = $version->getRSBlocks($ecLevel);
 
 		// Now establish DataBlocks of the appropriate size and number of data codewords
 		$result          = [];//new DataBlock[$totalBlocks];
