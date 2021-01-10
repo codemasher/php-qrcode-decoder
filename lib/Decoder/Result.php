@@ -17,6 +17,8 @@
 
 namespace Zxing\Decoder;
 
+use function Zxing\Common\arraycopy;
+
 /**
  * <p>Encapsulates the result of decoding a barcode within an image.</p>
  *

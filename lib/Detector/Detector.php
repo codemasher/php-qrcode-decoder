@@ -18,9 +18,11 @@
 namespace Zxing\Detector;
 
 use chillerlan\QRCode\Common\Version;
-use Zxing\Common\{MathUtils, NotFoundException};
+use Zxing\Common\NotFoundException;
 use Zxing\Decoder\BitMatrix;
 use Zxing\Decoder\FormatException;
+
+use function Zxing\Common\distance;
 
 /**
  * <p>Encapsulates logic that can detect a QR Code in an image, even if the QR Code
@@ -238,7 +240,7 @@ class Detector{
 			// color, advance to next state or end if we are in state 2 already
 			if(($state === 1) === $this->image->get($realX, $realY)){
 				if($state === 2){
-					return MathUtils::distance($x, $y, $fromX, $fromY);
+					return distance($x, $y, $fromX, $fromY);
 				}
 				$state++;
 			}
@@ -256,7 +258,7 @@ class Detector{
 		// is "white" so this last po$at (toX+xStep,toY) is the right ending. This is really a
 		// small approximation; (toX+xStep,toY+yStep) might be really correct. Ignore this.
 		if($state === 2){
-			return MathUtils::distance($toX + $xstep, $toY, $fromX, $fromY);
+			return distance($toX + $xstep, $toY, $fromX, $fromY);
 		}
 
 		// else we didn't find even black-white-black; no estimate is really possible

@@ -17,7 +17,7 @@
 
 namespace Zxing\Detector;
 
-use Zxing\Common\MathUtils;
+use function Zxing\Common\{distance, squaredDistance};
 
 /**
  * <p>Encapsulates a finder pattern, which are the three square patterns found in
@@ -52,14 +52,14 @@ final class FinderPattern extends ResultPoint{
 	 * @return float distance between two points
 	 */
 	public function distance(FinderPattern $b):float{
-		return MathUtils::distance($this->getX(), $this->getY(), $b->getX(), $b->getY());
+		return distance($this->getX(), $this->getY(), $b->getX(), $b->getY());
 	}
 
 	/**
 	 * Get square of distance between a and b.
 	 */
 	public function squaredDistance(FinderPattern $b):float{
-		return MathUtils::squaredDistance($this->getX(), $this->getY(), $b->getX(), $b->getY());
+		return squaredDistance($this->getX(), $this->getY(), $b->getX(), $b->getY());
 	}
 
 	/**

@@ -1,4 +1,5 @@
 <?php
+namespace Zxing\Common;
 
 if(!function_exists('arraycopy')){
 	function arraycopy(array $srcArray, int $srcPos, array $destArray, int $destPos, int $length):array{
@@ -35,5 +36,20 @@ if(!function_exists('numBitsDiffering')){
 		}
 
 		return $count;
+	}
+}
+
+if(!function_exists('squaredDistance')){
+	function squaredDistance(int $aX, int $aY, int $bX, int $bY):float{
+		$xDiff = $aX - $bX;
+		$yDiff = $aY - $bY;
+
+		return $xDiff * $xDiff + $yDiff * $yDiff;
+	}
+}
+
+if(!function_exists('distance')){
+	function distance(int $aX, int $aY, int $bX, int $bY):float{
+		return \sqrt(squaredDistance($aX, $aY, $bX, $bY));
 	}
 }

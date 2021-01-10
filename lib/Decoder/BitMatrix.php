@@ -6,6 +6,8 @@ use chillerlan\QRCode\Common\Version;
 use Closure;
 use InvalidArgumentException;
 
+use function Zxing\Common\uRShift;
+
 final class BitMatrix{
 
 	private int   $width;

@@ -19,6 +19,8 @@ namespace Zxing\Decoder;
 
 use InvalidArgumentException;
 
+use function Zxing\Common\arraycopy;
+
 /**
  * The purpose of this class hierarchy is to abstract different bitmap implementations across
  * platforms into a standard interface for requesting greyscale luminance values. The interface

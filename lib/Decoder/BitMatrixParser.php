@@ -20,6 +20,8 @@ namespace Zxing\Decoder;
 use chillerlan\QRCode\Common\Version;
 use Zxing\Common\FormatInformation;
 
+use function Zxing\Common\numBitsDiffering;
+
 /**
  * @author Sean Owen
  */
