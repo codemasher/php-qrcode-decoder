@@ -17,6 +17,8 @@
 
 namespace Zxing\Detector;
 
+use Zxing\Common\MathUtils;
+
 /**
  * <p>Encapsulates a finder pattern, which are the three square patterns found in
  * the corners of QR Codes. It also encapsulates a count of similar finder patterns,
@@ -42,6 +44,22 @@ final class FinderPattern extends ResultPoint{
 
 	public function getCount():int{
 		return $this->count;
+	}
+
+	/**
+	 * @param \Zxing\Detector\FinderPattern $b second pattern
+	 *
+	 * @return float distance between two points
+	 */
+	public function distance(FinderPattern $b):float{
+		return MathUtils::distance($this->getX(), $this->getY(), $b->getX(), $b->getY());
+	}
+
+	/**
+	 * Get square of distance between a and b.
+	 */
+	public function squaredDistance(FinderPattern $b):float{
+		return MathUtils::squaredDistance($this->getX(), $this->getY(), $b->getX(), $b->getY());
 	}
 
 	/**

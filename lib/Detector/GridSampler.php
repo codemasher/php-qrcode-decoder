@@ -58,9 +58,9 @@ class GridSampler{
 		// Check and nudge points from start until we see some that are OK:
 		$nudged = true;
 
-#		$max = \count($points);
+		$max = \count($points);
 
-		for($offset = 0; $offset < \count($points) && $nudged; $offset += 2){
+		for($offset = 0; $offset < $max && $nudged; $offset += 2){
 			$x = (int)$points[$offset];
 			$y = (int)$points[$offset + 1];
 

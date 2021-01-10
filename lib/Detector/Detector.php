@@ -20,6 +20,7 @@ namespace Zxing\Detector;
 use chillerlan\QRCode\Common\Version;
 use Zxing\Common\{MathUtils, NotFoundException};
 use Zxing\Decoder\BitMatrix;
+use Zxing\Decoder\FormatException;
 
 /**
  * <p>Encapsulates logic that can detect a QR Code in an image, even if the QR Code
@@ -42,6 +43,7 @@ class Detector{
 	 * <p>Detects a QR Code in an image.</p>
 	 *
 	 * @throws \Zxing\Common\NotFoundException if QR Code cannot be found
+	 * @throws \Zxing\Decoder\FormatException if dimension mod 4 is not 1
 	 */
 	public final function detect():DetectorResult{/*Map<DecodeHintType,?>*/
 		$finder     = new FinderPatternFinder($this->image);
@@ -264,6 +266,8 @@ class Detector{
 	/**
 	 * <p>Computes the dimension (number of modules on a size) of the QR Code based on the position
 	 * of the finder patterns and estimated module size.</p>
+	 *
+	 * @throws \Zxing\Common\NotFoundException
 	 */
 	private function computeDimension(
 		FinderPattern $topLeft,
@@ -271,11 +275,11 @@ class Detector{
 		FinderPattern $bottomLeft,
 		float $moduleSize
 	):int{
-		$tltrCentersDimension = MathUtils::round(FinderPatternFinder::distance($topLeft, $topRight) / $moduleSize);
-		$tlblCentersDimension = MathUtils::round(FinderPatternFinder::distance($topLeft, $bottomLeft) / $moduleSize);
-		$dimension            = (($tltrCentersDimension + $tlblCentersDimension) / 2) + 7;
+		$tltrCentersDimension = (int)\round($topLeft->distance($topRight) / $moduleSize);
+		$tlblCentersDimension = (int)\round($topLeft->distance($bottomLeft) / $moduleSize);
+		$dimension            = (int)((($tltrCentersDimension + $tlblCentersDimension) / 2) + 7);
 
-		switch($dimension & 0x03){ // mod 4
+		switch($dimension % 4){
 			case 0:
 				$dimension++;
 				break;

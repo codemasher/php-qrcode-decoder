@@ -32,13 +32,7 @@ final class Result{
 	private int     $timestamp;
 	private ?array  $resultMetadata = null;
 
-	public function __construct(
-		string $text,
-		array $rawBytes,
-		array $resultPoints,
-		int $timestamp = null
-	){
-
+	public function __construct(string $text, array $rawBytes, array $resultPoints, int $timestamp = null){
 		$this->text         = $text;
 		$this->rawBytes     = $rawBytes;
 		$this->resultPoints = $resultPoints;
@@ -49,6 +43,10 @@ final class Result{
 	 * @return string raw text encoded by the barcode
 	 */
 	public function getText():string{
+		return $this->text;
+	}
+
+	public function __toString():string{
 		return $this->text;
 	}
 
@@ -118,10 +116,6 @@ final class Result{
 
 	public function getTimestamp():int{
 		return $this->timestamp;
-	}
-
-	public function toString():string{
-		return $this->text;
 	}
 
 }

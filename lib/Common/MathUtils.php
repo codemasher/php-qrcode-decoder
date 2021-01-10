@@ -19,24 +19,14 @@ namespace Zxing\Common;
 
 final class MathUtils{
 
-	/**
-	 * Ends up being a bit faster than {@link Math#round(float)}. This merely rounds its
-	 * argument to the nearest int, where x.5 rounds up to x+1. Semantics of this shortcut
-	 * differ slightly from {@link Math#round(float)} in that half rounds down for negative
-	 * values. -2.5 rounds to -3, not -2. For purposes here it makes no difference.
-	 *
-	 * @param float $d real value to round
-	 *
-	 * @return int $nearest {@code int}
-	 */
-	public static function round(float $d):int{
-		return (int)($d + ($d < 0.0 ? -0.5 : 0.5));
-	}
-
-	public static function distance(int $aX, int $aY, int $bX, int $bY):float{
+	public static function squaredDistance(int $aX, int $aY, int $bX, int $bY):float{
 		$xDiff = $aX - $bX;
 		$yDiff = $aY - $bY;
 
-		return \sqrt($xDiff * $xDiff + $yDiff * $yDiff);
+		return $xDiff * $xDiff + $yDiff * $yDiff;
+	}
+
+	public static function distance(int $aX, int $aY, int $bX, int $bY):float{
+		return \sqrt(self::squaredDistance($aX, $aY, $bX, $bY));
 	}
 }

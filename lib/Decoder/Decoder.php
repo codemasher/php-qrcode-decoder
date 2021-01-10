@@ -69,29 +69,6 @@ final class Decoder{
 	}
 
 	/**
-	 * <p>Convenience method that can decode a QR Code represented as a 2D array of booleans.
-	 * "true" is taken to mean a black module.</p>
-	 *
-	 * @param array $image booleans representing white/black QR Code modules
-	 *
-	 * @return \Zxing\Decoder\DecoderResult text and bytes encoded within the QR Code
-	 */
-	public function decodeImage(array $image):DecoderResult{
-		$dimension = \count($image);
-		$bits      = new BitMatrix($dimension);
-
-		for($i = 0; $i < $dimension; $i++){
-			for($j = 0; $j < $dimension; $j++){
-				if($image[$i][$j]){
-					$bits->set($j, $i);
-				}
-			}
-		}
-
-		return $this->decodeBits($bits);
-	}
-
-	/**
 	 * <p>Decodes a QR Code represented as a {@link \Zxing\Decoder\BitMatrix}. A 1 or "true" is taken to mean a black module.</p>
 	 *
 	 * @param \Zxing\Decoder\BitMatrix $bits booleans representing white/black QR Code modules

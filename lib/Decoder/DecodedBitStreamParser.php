@@ -80,14 +80,14 @@ final class DecodedBitStreamParser{
 				$symbolSequence = $bits->readBits(8);
 				$parityData     = $bits->readBits(8);
 			}
-/*			elseif($mode === Mode::DATA_ECI){
+			elseif($mode === Mode::DATA_ECI){
 				// Count doesn't apply to ECI
 				$value                  = $this->parseECIValue($bits);
 				$currentCharacterSetECI = CharacterSetECI::getCharacterSetECIByValue($value);
 				if($currentCharacterSetECI === null){
 					throw new FormatException();
 				}
-			}*/
+			}
 			else{
 				// First handle Hanzi mode which does not start with character count
 /*				if($mode === Mode::DATA_HANZI){
@@ -286,7 +286,11 @@ final class DecodedBitStreamParser{
 	 * @throws \Zxing\Decoder\FormatException
 	 */
 	private function decodeByteSegment(
-		BitSource $bits, string &$result, int $count, $currentCharacterSetECI, array &$byteSegments
+		BitSource $bits,
+		string &$result,
+		int $count,
+		array &$byteSegments,
+		CharacterSetECI $currentCharacterSetECI = null
 	):void{
 		// Don't crash trying to read more bits than we have available.
 		if(8 * $count > $bits->available()){
