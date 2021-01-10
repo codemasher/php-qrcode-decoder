@@ -171,7 +171,7 @@ final class BitMatrixParser{
 	/**
 	 * <p>Reads version information from one of its two locations within the QR Code.</p>
 	 *
-	 * @return \Zxing\Common\Version encapsulating the QR Code's version
+	 * @return \chillerlan\QRCode\Common\Version encapsulating the QR Code's version
 	 * @throws \Zxing\Decoder\FormatException if both version information locations cannot be parsed as
 	 *                                        the valid encoding of version information
 	 */
