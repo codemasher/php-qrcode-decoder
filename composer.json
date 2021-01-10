@@ -42,7 +42,7 @@
 			"Zxing\\": "lib/"
 		},
 		"files": [
-			"lib/Common/functions.php"
+			"lib/includes.php"
 		]
 	},
 	"autoload-dev": {
