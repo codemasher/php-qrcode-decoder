@@ -2,7 +2,8 @@
 
 namespace Khanamiryan\QrCodeTests;
 
-use chillerlan\QRCode\Data\QRDataInterface;
+use chillerlan\QRCode\Common\EccLevel;
+use chillerlan\QRCode\Common\Version;
 use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
 use PHPUnit\Framework\TestCase;
@@ -40,8 +41,8 @@ class QrReaderTest extends TestCase{
 	 */
 	public function testReaderGD(string $img, string $expected):void{
 		$reader = new QrReader(__DIR__.'/qrcodes/'.$img, QrReader::SOURCE_TYPE_FILE, false);
-		$r = $reader->decode();
-		self::assertSame($expected, $r->toString());
+
+		self::assertSame($expected, (string)$reader->decode());
 	}
 
 	/**
@@ -55,16 +56,21 @@ class QrReaderTest extends TestCase{
 
 		$reader = new QrReader(__DIR__.'/qrcodes/'.$img, QrReader::SOURCE_TYPE_FILE, true);
 
-		self::assertSame($expected, $reader->decode()->toString());
+		self::assertSame($expected, (string)$reader->decode());
 	}
 
 	public function dataTestProvider():array{
 		$data = [];
+		$str  = \str_repeat(self::loremipsum, 5);
 
-		$str = \str_repeat(self::loremipsum, 5);
-
-		foreach(\range(1, 40) as $version){
-			$data['version '.$version] = [$version, \substr($str, 0, QRDataInterface::MAX_LENGTH[$version][2][0])];
+		foreach(\range(1, 10) as $version){
+			foreach(EccLevel::MODES as $ecc => $_){
+				$data['version: '.$version.EccLevel::MODES_STRING[$ecc]] = [
+					$version,
+					$ecc,
+					\substr($str, 0, (new Version($version))->getMaxLengthForMode(2, new EccLevel($ecc))) // byte mode
+				];
+			}
 		}
 
 		return $data;
@@ -73,24 +79,23 @@ class QrReaderTest extends TestCase{
 	/**
 	 * @dataProvider dataTestProvider
 	 */
-	public function testReadData(int $version, string $data):void{
+	public function testReadData(int $version, int $ecc, string $expected):void{
 		$options = new QROptions;
 #		$options->imageTransparent = false;
-		$options->imageBase64 = false;
-		$options->version = $version;
+		$options->eccLevel         = $ecc;
+		$options->version          = $version;
+		$options->imageBase64      = false;
 
-		$qr        = new QRCode($options);
-		$imagedata = $qr->render($data);
+		$imagedata = (new QRCode($options))->render($expected);
 
 		try{
-			$reader = new QrReader($imagedata, QrReader::SOURCE_TYPE_BLOB, true);
-			$result = $reader->decode();
-		}catch(\Exception $e){
-			self::markTestSkipped($version);
+			$result = (new QrReader($imagedata, QrReader::SOURCE_TYPE_BLOB, true))->decode();
+		}
+		catch(\Exception $e){
+			self::markTestSkipped($version.EccLevel::MODES_STRING[$ecc].': '.$e->getMessage());
 		}
 
-		self::assertSame($data, $result->toString());
-
+		self::assertSame($expected, (string)$result);
 	}
 
 }

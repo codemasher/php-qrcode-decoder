@@ -17,8 +17,10 @@
 
 namespace Zxing\Decoder;
 
+use chillerlan\QRCode\Common\EccLevel;
+use chillerlan\QRCode\Common\Version;
 use InvalidArgumentException;
-use Zxing\Common\{ErrorCorrectionLevel, ReedSolomonDecoder, Version};
+use Zxing\Common\{ReedSolomonDecoder};
 use Zxing\Detector\Detector;
 use Zxing\ReaderException;
 
@@ -115,10 +117,10 @@ final class Decoder{
 			$parser->setMirror(true);
 
 			// Preemptively read the version.
-			$parser->readVersion();
+#			$parser->readVersion();
 
 			// Preemptively read the format information.
-			$parser->readFormatInformation();
+#			$parser->readFormatInformation();
 
 			/*
 			 * Since we're here, this means we have successfully detected some kind

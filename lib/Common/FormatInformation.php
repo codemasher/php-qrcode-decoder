@@ -66,17 +66,12 @@ final class FormatInformation{
 		[0x2BED, 0x1F],
 	];
 
-	/**
-	 * Offset i holds the number of 1 bits in the binary representation of i
-	 */
-	private const BITS_SET_IN_HALF_BYTE = [0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4];
-
-	private \Zxing\Common\ErrorCorrectionLevel $errorCorrectionLevel;
-	private int                                $dataMask;
+	private int $errorCorrectionLevel;
+	private int $dataMask;
 
 	private function __construct(int $formatInfo){
 		// Bits 3,4
-		$this->errorCorrectionLevel = new ErrorCorrectionLevel(($formatInfo >> 3) & 0x03);
+		$this->errorCorrectionLevel = ($formatInfo >> 3) & 0x03;
 		// Bottom 3 bits
 		$this->dataMask = ($formatInfo & 0x07);//(byte)
 	}
@@ -115,10 +110,10 @@ final class FormatInformation{
 
 			if($targetInfo === $maskedFormatInfo1 || $targetInfo === $maskedFormatInfo2){
 				// Found an exact match
-				return new FormatInformation($decodeInfo[1]);
+				return new self($decodeInfo[1]);
 			}
 
-			$bitsDifference = self::numBitsDiffering($maskedFormatInfo1, $targetInfo);
+			$bitsDifference = numBitsDiffering($maskedFormatInfo1, $targetInfo);
 
 			if($bitsDifference < $bestDifference){
 				$bestFormatInfo = $decodeInfo[1];
@@ -127,7 +122,7 @@ final class FormatInformation{
 
 			if($maskedFormatInfo1 !== $maskedFormatInfo2){
 				// also try the other option
-				$bitsDifference = self::numBitsDiffering($maskedFormatInfo2, $targetInfo);
+				$bitsDifference = numBitsDiffering($maskedFormatInfo2, $targetInfo);
 				if($bitsDifference < $bestDifference){
 					$bestFormatInfo = $decodeInfo[1];
 					$bestDifference = $bitsDifference;
@@ -137,25 +132,13 @@ final class FormatInformation{
 		// Hamming distance of the 32 masked codes is 7, by construction, so <= 3 bits
 		// differing means we found a match
 		if($bestDifference <= 3){
-			return new FormatInformation($bestFormatInfo);
+			return new self($bestFormatInfo);
 		}
 
 		return null;
 	}
 
-	public static function numBitsDiffering(int $a, int $b):int{
-		$a ^= $b; // a now has a 1 bit exactly where its bit differs with b's
-		// Count bits set quickly with a series of lookups:
-		$count = 0;
-
-		for($i = 0; $i < 32; $i += 4){
-			$count += self::BITS_SET_IN_HALF_BYTE[uRShift($a, $i) & 0x0F];
-		}
-
-		return $count;
-	}
-
-	public function getErrorCorrectionLevel():ErrorCorrectionLevel{
+	public function getErrorCorrectionLevel():int{
 		return $this->errorCorrectionLevel;
 	}
 

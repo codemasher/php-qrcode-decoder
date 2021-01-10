@@ -2,9 +2,9 @@
 
 namespace Zxing\Decoder;
 
+use chillerlan\QRCode\Common\Version;
 use Closure;
 use InvalidArgumentException;
-use Zxing\Common\Version;
 
 final class BitMatrix{
 
@@ -120,7 +120,7 @@ final class BitMatrix{
 	 * See ISO 18004:2006 Annex E
 	 */
 	public function buildFunctionPattern(Version $version):BitMatrix{
-		$dimension = $version->getDimensionForVersion();
+		$dimension = $version->getDimension();
 		// @todo
 		$bitMatrix = new self($dimension);
 
@@ -132,7 +132,7 @@ final class BitMatrix{
 		$bitMatrix->setRegion(0, $dimension - 8, 9, 8);
 
 		// Alignment patterns
-		$apc = $version->getAlignmentPatternCenters();
+		$apc = $version->getAlignmentPattern();
 		$max = \count($apc);
 
 		for($x = 0; $x < $max; $x++){

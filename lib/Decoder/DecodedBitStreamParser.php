@@ -17,7 +17,10 @@
 
 namespace Zxing\Decoder;
 
-use Zxing\Common\{CharacterSetECI, ErrorCorrectionLevel, Mode, Version};
+use Zxing\Common\{CharacterSetECI};
+use chillerlan\QRCode\Common\EccLevel;
+use chillerlan\QRCode\Common\Mode;
+use chillerlan\QRCode\Common\Version;
 
 /**
  * <p>QR Codes can encode text as bits in one of several modes, and can use multiple modes
@@ -44,7 +47,7 @@ final class DecodedBitStreamParser{
 	/**
 	 * @throws \Zxing\Decoder\FormatException
 	 */
-	public function decode(array $bytes, Version $version, ErrorCorrectionLevel $ecLevel):DecoderResult{
+	public function decode(array $bytes, Version $version, EccLevel $ecLevel):DecoderResult{
 		$bits           = new BitSource($bytes);
 		$result         = '';
 		$byteSegments   = [];
@@ -87,18 +90,18 @@ final class DecodedBitStreamParser{
 			}*/
 			else{
 				// First handle Hanzi mode which does not start with character count
-				if($mode === Mode::DATA_HANZI){
+/*				if($mode === Mode::DATA_HANZI){
 					//chinese mode contains a sub set indicator right after mode indicator
 					$subset     = $bits->readBits(4);
-					$countHanzi = $bits->readBits(Mode::getCharacterCountBits($versionNumber, $mode));
+					$countHanzi = $bits->readBits(Mode::getLengthBitsForVersion($mode, $versionNumber));
 					if($subset == self::GB2312_SUBSET){
 						$this->decodeHanziSegment($bits, $result, $countHanzi);
 					}
-				}
-				else{
+				}*/
+#				else{
 					// "Normal" QR code modes:
 					// How many characters will follow, encoded in this mode?
-					$count = $bits->readBits(Mode::getCharacterCountBits($versionNumber, $mode));
+					$count = $bits->readBits(Mode::getLengthBitsForVersion($mode, $versionNumber));
 					if($mode === Mode::DATA_NUMBER){
 						$this->decodeNumericSegment($bits, $result, $count);
 					}
@@ -106,7 +109,7 @@ final class DecodedBitStreamParser{
 						$this->decodeAlphanumericSegment($bits, $result, $count, $fc1InEffect);
 					}
 					elseif($mode === Mode::DATA_BYTE){
-						$this->decodeByteSegment($bits, $result, $count, $currentCharacterSetECI, $byteSegments);
+						$this->decodeByteSegment($bits, $result, $count, $byteSegments, $currentCharacterSetECI);
 					}
 					elseif($mode === Mode::DATA_KANJI){
 						$this->decodeKanjiSegment($bits, $result, $count);
@@ -114,7 +117,7 @@ final class DecodedBitStreamParser{
 					else{
 						throw new FormatException();
 					}
-				}
+#				}
 			}
 		}
 

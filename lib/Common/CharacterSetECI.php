@@ -94,7 +94,7 @@ final class CharacterSetECI{
 	 *
 	 * @return CharacterSetEci|null
 	 */
-/*	public static function getCharacterSetECIByValue($value){
+	public static function getCharacterSetECIByValue(int $value){
 		if($value < 0 || $value >= 900){
 			throw new InvalidArgumentException('Value must be between 0 and 900');
 		}
@@ -110,7 +110,7 @@ final class CharacterSetECI{
 		catch(UnexpectedValueException $e){
 			return null;
 		}
-	}*/
+	}
 
 /*	private static function setName($value){
 		foreach(self::$nameToEci as $name => $key){

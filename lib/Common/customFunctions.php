@@ -20,3 +20,20 @@ if(!function_exists('uRShift')){
 		return ($a >> $b) & ~(1 << $mask >> ($b - 1));
 	}
 }
+
+if(!function_exists('numBitsDiffering')){
+	function numBitsDiffering(int $a, int $b):int{
+		// a now has a 1 bit exactly where its bit differs with b's
+		$a ^= $b;
+		// Offset i holds the number of 1 bits in the binary representation of i
+		$BITS_SET_IN_HALF_BYTE = [0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4];
+		// Count bits set quickly with a series of lookups:
+		$count = 0;
+
+		for($i = 0; $i < 32; $i += 4){
+			$count += $BITS_SET_IN_HALF_BYTE[uRShift($a, $i) & 0x0F];
+		}
+
+		return $count;
+	}
+}

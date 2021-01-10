@@ -17,8 +17,8 @@
 
 namespace Zxing\Decoder;
 
+use chillerlan\QRCode\Common\Version;
 use Zxing\Common\FormatInformation;
-use Zxing\Common\Version;
 
 /**
  * @author Sean Owen
@@ -198,7 +198,7 @@ final class BitMatrixParser{
 
 		$theParsedVersion = $this->decodeVersionInformation($versionBits);
 
-		if($theParsedVersion !== null && $theParsedVersion->getDimensionForVersion() === $dimension){
+		if($theParsedVersion !== null && $theParsedVersion->getDimension() === $dimension){
 			$this->parsedVersion = $theParsedVersion;
 
 			return $theParsedVersion;
@@ -215,7 +215,7 @@ final class BitMatrixParser{
 
 		$theParsedVersion = $this->decodeVersionInformation($versionBits);
 
-		if($theParsedVersion !== null && $theParsedVersion->getDimensionForVersion() === $dimension){
+		if($theParsedVersion !== null && $theParsedVersion->getDimension() === $dimension){
 			$this->parsedVersion = $theParsedVersion;
 
 			return $theParsedVersion;
@@ -229,16 +229,17 @@ final class BitMatrixParser{
 		$bestVersion    = 0;
 
 		for($i = 7; $i <= 40; $i++){
-			$targetVersion = Version::versionPattern[$i];
+			$targetVersion        = new Version($i);
+			$targetVersionPattern = $targetVersion->getVersionPattern();
 
 			// Do the version info bits match exactly? done.
-			if($targetVersion === $versionBits){
-				return new Version($i);
+			if($targetVersionPattern === $versionBits){
+				return $targetVersion;
 			}
 
 			// Otherwise see if this is the closest to a real version info bit string
 			// we have seen so far
-			$bitsDifference = FormatInformation::numBitsDiffering($versionBits, $targetVersion);
+			$bitsDifference = numBitsDiffering($versionBits, $targetVersionPattern);
 
 			if($bitsDifference < $bestDifference){
 				$bestVersion    = $i;

@@ -17,7 +17,8 @@
 
 namespace Zxing\Detector;
 
-use Zxing\Common\{MathUtils, NotFoundException, Version};
+use chillerlan\QRCode\Common\Version;
+use Zxing\Common\{MathUtils, NotFoundException};
 use Zxing\Decoder\BitMatrix;
 
 /**
@@ -54,13 +55,18 @@ class Detector{
 			throw new NotFoundException();
 		}
 
-		$dimension               = $this->computeDimension($topLeft, $topRight, $bottomLeft, $moduleSize);
-		$provisionalVersion      = Version::getProvisionalVersionForDimension($dimension);
-		$modulesBetweenFPCenters = $provisionalVersion->getDimensionForVersion() - 7;
+		$dimension = $this->computeDimension($topLeft, $topRight, $bottomLeft, $moduleSize);
+
+		if($dimension % 4 !== 1){
+			throw new FormatException('dimension mod 4 is not 1');
+		}
+
+		$provisionalVersion      = new Version((int)(($dimension - 17) / 4));
+		$modulesBetweenFPCenters = $provisionalVersion->getDimension() - 7;
 
 		$alignmentPattern = null;
 		// Anything above version 1 has an alignment pattern
-		if(count($provisionalVersion->getAlignmentPatternCenters()) > 0){
+		if(count($provisionalVersion->getAlignmentPattern()) > 0){
 
 			// Guess where a "bottom right" finder pattern would have been
 			$bottomRightX = $topRight->getX() - $topLeft->getX() + $bottomLeft->getX();
