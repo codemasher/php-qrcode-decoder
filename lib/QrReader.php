@@ -57,8 +57,6 @@ final class QrReader{
 			? new IMagickLuminanceSource($im, $im->getImageWidth(), $im->getImageHeight())
 			: new GDLuminanceSource($im, \imagesx($im), \imagesy($im));
 
-
-
 		return (new Decoder)->decode($source);
 	}
 
