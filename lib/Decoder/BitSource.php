@@ -114,4 +114,5 @@ final class BitSource{
 	public function available():int{
 		return 8 * (\count($this->bytes) - $this->byteOffset) - $this->bitOffset;
 	}
+
 }

@@ -23,7 +23,7 @@ namespace Zxing\Detector;
  *
  * @author Sean Owen
  */
-class ResultPoint{
+abstract class ResultPoint{
 
 	protected float $x;
 	protected float $y;

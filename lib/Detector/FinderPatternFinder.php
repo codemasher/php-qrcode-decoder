@@ -17,7 +17,7 @@
 
 namespace Zxing\Detector;
 
-use Zxing\Common\{MathUtils, NotFoundException};
+use Zxing\Common\NotFoundException;
 use Zxing\Decoder\BitMatrix;
 
 /**
@@ -34,7 +34,6 @@ final class FinderPatternFinder{
 	private const MAX_MODULES   = 177; // 1 pixel/module times 3 modules/center
 	private const CENTER_QUORUM = 2; // support up to version 10 for mobile clients
 	private BitMatrix $bitMatrix;
-	private float $average;
 	/** @var \Zxing\Detector\FinderPattern[] */
 	private array $possibleCenters; //private final List<FinderPattern> possibleCenters;
 	private bool  $hasSkipped = false;

@@ -34,7 +34,7 @@ use Zxing\Decoder\BitMatrix;
  *
  * @author Sean Owen
  */
-class GridSampler{
+final class GridSampler{
 
 	/**
 	 * <p>Checks a set of points that have been transformed to sample points on an image against

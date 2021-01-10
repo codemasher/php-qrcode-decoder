@@ -30,7 +30,7 @@ use function Zxing\Common\distance;
  *
  * @author Sean Owen
  */
-class Detector{
+final class Detector{
 
 	private BitMatrix $image;
 
@@ -47,7 +47,7 @@ class Detector{
 	 * @throws \Zxing\Common\NotFoundException if QR Code cannot be found
 	 * @throws \Zxing\Decoder\FormatException if dimension mod 4 is not 1
 	 */
-	public final function detect():DetectorResult{/*Map<DecodeHintType,?>*/
+	public function detect():DetectorResult{/*Map<DecodeHintType,?>*/
 		$finder     = new FinderPatternFinder($this->image);
 		$info       = $finder->find();
 		$topLeft    = $info->getTopLeft();
@@ -114,16 +114,12 @@ class Detector{
 	 * <p>Computes an average estimated module size based on estimated derived from the positions
 	 * of the three finder patterns.</p>
 	 */
-	protected final function calculateModuleSize(
-		FinderPattern $topLeft,
-		FinderPattern $topRight,
-		FinderPattern $bottomLeft
-	):float{
+	protected function calculateModuleSize(FinderPattern $topLeft, FinderPattern $topRight, FinderPattern $bottomLeft):float{
 		// Take the average
 		return (
-			       $this->calculateModuleSizeOneWay($topLeft, $topRight) +
-			       $this->calculateModuleSizeOneWay($topLeft, $bottomLeft)
-		       ) / 2.0;
+			$this->calculateModuleSizeOneWay($topLeft, $topRight) +
+			$this->calculateModuleSizeOneWay($topLeft, $bottomLeft)
+		) / 2.0;
 	}
 
 	/**

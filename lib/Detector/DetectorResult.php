@@ -26,7 +26,7 @@ use Zxing\Decoder\BitMatrix;
  *
  * @author Sean Owen
  */
-class DetectorResult{
+final class DetectorResult{
 
 	private BitMatrix $bits;
 	private array     $points;
@@ -43,4 +43,5 @@ class DetectorResult{
 	public final function getPoints():array{
 		return $this->points;
 	}
+
 }

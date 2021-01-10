@@ -59,4 +59,5 @@ final class AlignmentPattern extends ResultPoint{
 
 		return new self($combinedX, $combinedY, $combinedModuleSize);
 	}
+
 }

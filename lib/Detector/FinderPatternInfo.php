@@ -44,4 +44,5 @@ final class FinderPatternInfo{
 	public function getTopRight():FinderPattern{
 		return $this->topRight;
 	}
+
 }
