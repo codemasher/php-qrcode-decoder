@@ -65,7 +65,7 @@ class GridSampler{
 			$y = (int)$points[$offset + 1];
 
 			if($x < -1 || $x > $width || $y < -1 || $y > $height){
-				throw new NotFoundException();
+				throw new NotFoundException('checkAndNudgePoints 1 '.\print_r([$x, $y, $width, $height], true));
 			}
 
 			$nudged = false;
@@ -95,7 +95,7 @@ class GridSampler{
 			$y = (int)$points[$offset + 1];
 
 			if($x < -1 || $x > $width || $y < -1 || $y > $height){
-				throw new NotFoundException();
+				throw new NotFoundException('checkAndNudgePoints 2 '.\print_r([$x, $y, $width, $height], true));
 			}
 
 			$nudged = false;

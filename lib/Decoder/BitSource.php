@@ -66,7 +66,7 @@ final class BitSource{
 	public function readBits(int $numBits):int{
 
 		if($numBits < 1 || $numBits > 32 || $numBits > $this->available()){
-			throw new InvalidArgumentException(\strval($numBits));
+			throw new InvalidArgumentException('invalid $numBits: '.$numBits);
 		}
 
 		$result = 0;

@@ -38,8 +38,8 @@ final class BitMatrixParser{
 	public function __construct(BitMatrix $bitMatrix){
 		$dimension = $bitMatrix->getHeight();
 
-		if($dimension < 21 || ($dimension & 0x03) !== 1){
-			throw new FormatException();
+		if($dimension < 21 || ($dimension % 4) !== 1){
+			throw new FormatException('dimension is not >= 21, dimension mod 4 not 1');
 		}
 
 		$this->bitMatrix = $bitMatrix;
@@ -100,7 +100,7 @@ final class BitMatrixParser{
 		}
 
 		if($resultOffset !== $version->getTotalCodewords()){
-			throw new FormatException();
+			throw new FormatException('offset differs from total codewords for version');
 		}
 
 		return $result;
@@ -154,7 +154,7 @@ final class BitMatrixParser{
 			return $parsedFormatInfo;
 		}
 
-		throw new FormatException();
+		throw new FormatException('failed to read format info');
 	}
 
 	private function copyBit(int $i, int $j, int $versionBits):int{
@@ -221,7 +221,7 @@ final class BitMatrixParser{
 			return $theParsedVersion;
 		}
 
-		throw new FormatException();
+		throw new FormatException('failed to read version');
 	}
 
 	private function decodeVersionInformation(int $versionBits):?Version{

@@ -190,11 +190,12 @@ final class Decoder{
 	 * @param \Zxing\Common\ErrorCorrectionLevel $ecLevel      error-correction level of the QR Code
 	 *
 	 * @return array DataBlocks containing original bytes, "de-interleaved" from representation in the QR Code
+	 * @throws \InvalidArgumentException
 	 */
 	private function getDataBlocks(array $rawCodewords, Version $version, ErrorCorrectionLevel $ecLevel):array{
 
 		if(\count($rawCodewords) !== $version->getTotalCodewords()){
-			throw new InvalidArgumentException();
+			throw new InvalidArgumentException('$rawCodewords differ from total codewords for version');
 		}
 
 		// Figure out the number and size of data blocks used by this version and

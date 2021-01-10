@@ -278,7 +278,7 @@ class Detector{
 				$dimension--;
 				break;
 			case 3:
-				throw new NotFoundException();
+				throw new NotFoundException('estimated dimension: '.$dimension);
 		}
 
 		return $dimension;

@@ -41,8 +41,8 @@ final class GenericGFPoly{
 	 */
 	public function __construct(array $coefficients){
 
-		if(\count($coefficients) === 0){
-			throw new InvalidArgumentException();
+		if(empty($coefficients)){
+			throw new InvalidArgumentException('arg $coefficients is empty');
 		}
 
 		$coefficientsLength = \count($coefficients);
