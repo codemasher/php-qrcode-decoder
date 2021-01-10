@@ -10,15 +10,23 @@ final class QrReader{
 	public const SOURCE_TYPE_FILE     = 'file';
 	public const SOURCE_TYPE_BLOB     = 'blob';
 	public const SOURCE_TYPE_RESOURCE = 'resource';
+	private bool $useImagickIfAvailable;
 
-	private LuminanceSource $source;
+	public function __construct(bool $useImagickIfAvailable = true){
+		$this->useImagickIfAvailable = $useImagickIfAvailable && \extension_loaded('imagick');
+	}
 
-	public function __construct($imgSource, string $sourceType = self::SOURCE_TYPE_FILE, bool $useImagickIfAvailable = true){
-		$useImagickIfAvailable = $useImagickIfAvailable && \extension_loaded('imagick');
+	/**
+	 * @param \Imagick|\GdImage|resource|string $imgSource
+	 * @param string                            $sourceType
+	 *
+	 * @return \Zxing\Decoder\Result|null
+	 */
+	public function decode($imgSource, string $sourceType = self::SOURCE_TYPE_FILE):?Result{
 
 		if($sourceType === self::SOURCE_TYPE_FILE){
 
-			if($useImagickIfAvailable){
+			if($this->useImagickIfAvailable){
 				$im = new Imagick;
 				$im->readImage($imgSource);
 			}
@@ -29,7 +37,7 @@ final class QrReader{
 		}
 		elseif($sourceType === self::SOURCE_TYPE_BLOB){
 
-			if($useImagickIfAvailable){
+			if($this->useImagickIfAvailable){
 				$im = new Imagick;
 				$im->readImageBlob($imgSource);
 			}
@@ -45,13 +53,13 @@ final class QrReader{
 			throw new InvalidArgumentException('Invalid image source.');
 		}
 
-		$this->source = $useImagickIfAvailable
+		$source = $this->useImagickIfAvailable
 			? new IMagickLuminanceSource($im, $im->getImageWidth(), $im->getImageHeight())
 			: new GDLuminanceSource($im, \imagesx($im), \imagesy($im));
-	}
 
-	public function decode():?Result{
-		return (new Decoder)->decode($this->source);
+
+
+		return (new Decoder)->decode($source);
 	}
 
 }

@@ -40,9 +40,9 @@ class QrReaderTest extends TestCase{
 	 * @dataProvider qrCodeProvider
 	 */
 	public function testReaderGD(string $img, string $expected):void{
-		$reader = new QrReader(__DIR__.'/qrcodes/'.$img, QrReader::SOURCE_TYPE_FILE, false);
+		$reader = new QrReader(false);
 
-		self::assertSame($expected, (string)$reader->decode());
+		self::assertSame($expected, (string)$reader->decode(__DIR__.'/qrcodes/'.$img, QrReader::SOURCE_TYPE_FILE));
 	}
 
 	/**
@@ -54,21 +54,25 @@ class QrReaderTest extends TestCase{
 			self::markTestSkipped('imagick not installed');
 		}
 
-		$reader = new QrReader(__DIR__.'/qrcodes/'.$img, QrReader::SOURCE_TYPE_FILE, true);
+		$reader = new QrReader(true);
 
-		self::assertSame($expected, (string)$reader->decode());
+		self::assertSame($expected, (string)$reader->decode(__DIR__.'/qrcodes/'.$img, QrReader::SOURCE_TYPE_FILE));
 	}
 
 	public function dataTestProvider():array{
 		$data = [];
 		$str  = \str_repeat(self::loremipsum, 5);
 
-		foreach(\range(1, 10) as $version){
+		foreach(\range(1, 40) as $v){
+			$version = new Version($v);
+
 			foreach(EccLevel::MODES as $ecc => $_){
-				$data['version: '.$version.EccLevel::MODES_STRING[$ecc]] = [
+				$eccLevel = new EccLevel($ecc);
+
+				$data['version: '.$version->getVersionNumber().$eccLevel->__toString()] = [
 					$version,
-					$ecc,
-					\substr($str, 0, (new Version($version))->getMaxLengthForMode(2, new EccLevel($ecc))) // byte mode
+					$eccLevel,
+					\substr($str, 0, $version->getMaxLengthForMode(2, $eccLevel)) // byte mode
 				];
 			}
 		}
@@ -79,20 +83,20 @@ class QrReaderTest extends TestCase{
 	/**
 	 * @dataProvider dataTestProvider
 	 */
-	public function testReadData(int $version, int $ecc, string $expected):void{
+	public function testReadData(Version $version, EccLevel $ecc, string $expected):void{
 		$options = new QROptions;
 #		$options->imageTransparent = false;
-		$options->eccLevel         = $ecc;
-		$options->version          = $version;
+		$options->eccLevel         = $ecc->getLevel();
+		$options->version          = $version->getVersionNumber();
 		$options->imageBase64      = false;
 
 		$imagedata = (new QRCode($options))->render($expected);
 
 		try{
-			$result = (new QrReader($imagedata, QrReader::SOURCE_TYPE_BLOB, true))->decode();
+			$result = (new QrReader(true))->decode($imagedata, QrReader::SOURCE_TYPE_BLOB);
 		}
 		catch(\Exception $e){
-			self::markTestSkipped($version.EccLevel::MODES_STRING[$ecc].': '.$e->getMessage());
+			self::markTestSkipped($version->getVersionNumber().$ecc->__toString().': '.$e->getMessage());
 		}
 
 		self::assertSame($expected, (string)$result);
