@@ -89,6 +89,7 @@ class QrReaderTest extends TestCase{
 		$options->eccLevel         = $ecc->getLevel();
 		$options->version          = $version->getVersionNumber();
 		$options->imageBase64      = false;
+		$options->scale            = 1; // what's interesting is that a smaller scale seems to produce less errors???
 
 		$imagedata = (new QRCode($options))->render($expected);
 
