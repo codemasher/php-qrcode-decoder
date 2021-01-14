@@ -49,6 +49,7 @@ final class ReedSolomonDecoder{
 	 * @param array $received data and error-correction codewords
 	 * @param int   $twoS     number of error-correction codewords available
 	 *
+	 * @return int[]
 	 * @throws ReedSolomonException if decoding fails for any reason
 	 */
 	public function decode(array $received, int $twoS):array{
@@ -57,8 +58,8 @@ final class ReedSolomonDecoder{
 		$noError              = true;
 
 		for($i = 0; $i < $twoS; $i++){
-			$eval                                                         = $poly->evaluateAt(GF256::exp($i));
-			$syndromeCoefficients[\count($syndromeCoefficients) - 1 - $i] = $eval;
+			$eval                                 = $poly->evaluateAt(GF256::exp($i));
+			$syndromeCoefficients[$twoS - 1 - $i] = $eval;
 
 			if($eval !== 0){
 				$noError = false;
@@ -69,16 +70,19 @@ final class ReedSolomonDecoder{
 			return $received;
 		}
 
-		$syndrome            = new GenericGFPoly($syndromeCoefficients);
-		$sigmaOmega          = $this->runEuclideanAlgorithm(GF256::buildMonomial($twoS, 1), $syndrome, $twoS);
-		$sigma               = $sigmaOmega[0];
-		$omega               = $sigmaOmega[1];
+		[$sigma, $omega] = $this->runEuclideanAlgorithm(
+			GF256::buildMonomial($twoS, 1),
+			new GenericGFPoly($syndromeCoefficients),
+			$twoS
+		);
+
 		$errorLocations      = $this->findErrorLocations($sigma);
 		$errorMagnitudes     = $this->findErrorMagnitudes($omega, $errorLocations);
 		$errorLocationsCount = \count($errorLocations);
+		$receivedCount       = \count($received);
 
 		for($i = 0; $i < $errorLocationsCount; $i++){
-			$position = \count($received) - 1 - GF256::log($errorLocations[$i]);
+			$position = $receivedCount - 1 - GF256::log($errorLocations[$i]);
 
 			if($position < 0){
 				throw new ReedSolomonException('Bad error location');
@@ -91,7 +95,7 @@ final class ReedSolomonDecoder{
 	}
 
 	/**
-	 * @return \Zxing\Common\GenericGFPoly[]
+	 * @return \Zxing\Common\GenericGFPoly[] [sigma, omega]
 	 * @throws \Zxing\Common\ReedSolomonException
 	 */
 	private function runEuclideanAlgorithm(GenericGFPoly $a, GenericGFPoly $b, int $R):array{
@@ -131,10 +135,8 @@ final class ReedSolomonDecoder{
 		}
 
 		$inverse = GF256::inverse($sigmaTildeAtZero);
-		$sigma   = $t->multiplyInt($inverse);
-		$omega   = $r->multiplyInt($inverse);
 
-		return [$sigma, $omega];
+		return [$t->multiplyInt($inverse), $r->multiplyInt($inverse)];
 	}
 
 	/**
