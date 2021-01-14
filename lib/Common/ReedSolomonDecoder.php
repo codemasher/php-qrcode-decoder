@@ -91,6 +91,7 @@ final class ReedSolomonDecoder{
 	}
 
 	/**
+	 * @return \Zxing\Common\GenericGFPoly[]
 	 * @throws \Zxing\Common\ReedSolomonException
 	 */
 	private function runEuclideanAlgorithm(GenericGFPoly $a, GenericGFPoly $b, int $R):array{
@@ -114,22 +115,7 @@ final class ReedSolomonDecoder{
 			$tLast     = $t;
 
 			// Divide rLastLast by rLast, with quotient in q and remainder in r
-			if($rLast->isZero()){
-				// Oops, Euclidean algorithm already terminated?
-				throw new ReedSolomonException('r_{i-1} was zero');
-			}
-
-			$r                      = $rLastLast;
-			$q                      = new GenericGFPoly([0]);
-			$denominatorLeadingTerm = $rLast->getCoefficient($rLast->getDegree());
-			$dltInverse             = GF256::inverse($denominatorLeadingTerm);
-
-			while($r->getDegree() >= $rLast->getDegree() && !$r->isZero()){
-				$degreeDiff = $r->getDegree() - $rLast->getDegree();
-				$scale      = GF256::multiply($r->getCoefficient($r->getDegree()), $dltInverse);
-				$q          = $q->addOrSubtract(GF256::buildMonomial($degreeDiff, $scale));
-				$r          = $r->addOrSubtract($rLast->multiplyByMonomial($degreeDiff, $scale));
-			}
+			[$q, $r] = $rLastLast->divide($rLast);
 
 			$t = $q->multiply($tLast)->addOrSubtract($tLastLast);
 

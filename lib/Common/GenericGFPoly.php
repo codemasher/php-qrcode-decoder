@@ -136,6 +136,34 @@ final class GenericGFPoly{
 		return new self($product);
 	}
 
+	/**
+	 * @param \Zxing\Common\GenericGFPoly $other
+	 *
+	 * @return \Zxing\Common\GenericGFPoly[] [quotient, remainder]
+	 */
+	public function divide(GenericGFPoly $other):array{
+
+		if($other->isZero()){
+			throw new InvalidArgumentException('Division by 0');
+		}
+
+		$quotient  = new self([0]);
+		$remainder = clone $this;
+
+		$denominatorLeadingTerm        = $other->getCoefficient($other->getDegree());
+		$inverseDenominatorLeadingTerm = GF256::inverse($denominatorLeadingTerm);
+
+		while($remainder->getDegree() >= $other->getDegree() && !$remainder->isZero()){
+			$degreeDifference  = $remainder->getDegree() - $other->getDegree();
+			$scale             = GF256::multiply($remainder->getCoefficient($remainder->getDegree()), $inverseDenominatorLeadingTerm);
+			$quotient          = $quotient->addOrSubtract(GF256::buildMonomial($degreeDifference, $scale));
+			$remainder         = $remainder->addOrSubtract($other->multiplyByMonomial($degreeDifference, $scale));
+		}
+
+		return [$quotient, $remainder];
+
+	}
+
 	public function multiplyInt(int $scalar):GenericGFPoly{
 
 		if($scalar === 0){
