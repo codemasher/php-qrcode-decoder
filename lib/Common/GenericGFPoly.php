@@ -19,6 +19,8 @@ namespace Zxing\Common;
 
 use InvalidArgumentException;
 
+use function array_fill, count;
+
 /**
  * <p>Represents a polynomial whose coefficients are elements of a GF.
  * Instances of this class are immutable.</p>
@@ -33,38 +35,71 @@ final class GenericGFPoly{
 	private array $coefficients;
 
 	/**
-	 * @param array $coefficients array coefficients as ints representing elements of GF(size), arranged
-	 *                            from most significant (highest-power term) coefficient to least significant
+	 * @param array|null $coefficients array coefficients as ints representing elements of GF(size), arranged
+	 *                                 from most significant (highest-power term) coefficient to least significant
+	 * @param int|null   $degree
 	 *
-	 * @throws InvalidArgumentException if argument is null or empty, or if leading coefficient is 0 and this is not a
+	 * @throws \InvalidArgumentException if argument is null or empty, or if leading coefficient is 0 and this is not a
 	 *                                  constant polynomial (that is, it is not the monomial "0")
 	 */
-	public function __construct(array $coefficients){
+	public function __construct(array $coefficients, int $degree = null){
+		$degree ??= 0;
 
 		if(empty($coefficients)){
 			throw new InvalidArgumentException('arg $coefficients is empty');
 		}
 
-		$coefficientsLength = \count($coefficients);
+		if($degree < 0){
+			throw new InvalidArgumentException('negative degree');
+		}
 
-		if($coefficientsLength > 1 && $coefficients[0] === 0){
-			// Leading term must be non-zero for anything except the constant polynomial "0"
-			$firstNonZero = 1;
-			while($firstNonZero < $coefficientsLength && $coefficients[$firstNonZero] === 0){
-				$firstNonZero++;
-			}
+		$coefficientsLength = count($coefficients);
 
-			if($firstNonZero === $coefficientsLength){
-				$this->coefficients = [0];
-			}
-			else{
-				$this->coefficients = \array_fill(0, $coefficientsLength - $firstNonZero, 0);
-				$this->coefficients = arraycopy($coefficients, $firstNonZero, $this->coefficients, 0, \count($this->coefficients));
-			}
+		// Leading term must be non-zero for anything except the constant polynomial "0"
+		$firstNonZero = 0;
+
+		while($firstNonZero < $coefficientsLength && $coefficients[$firstNonZero] === 0){
+			$firstNonZero++;
+		}
+
+		if($firstNonZero === $coefficientsLength){
+			$this->coefficients = [0];
 		}
 		else{
-			$this->coefficients = $coefficients;
+			$this->coefficients = array_fill(0, $coefficientsLength - $firstNonZero + $degree, 0);
+
+			for($i = 0; $i < $coefficientsLength - $firstNonZero; $i++){
+				$this->coefficients[$i] = $coefficients[$i + $firstNonZero];
+			}
 		}
+	}
+
+	/**
+	 * @return int $coefficient of x^degree term in this polynomial
+	 */
+	public function getCoefficient(int $degree):int{
+		return $this->coefficients[count($this->coefficients) - 1 - $degree];
+	}
+
+	/**
+	 * @return int[]
+	 */
+	public function getCoefficients():array{
+		return $this->coefficients;
+	}
+
+	/**
+	 * @return int $degree of this polynomial
+	 */
+	public function getDegree():int{
+		return count($this->coefficients) - 1;
+	}
+
+	/**
+	 * @return bool true if this polynomial is the monomial "0"
+	 */
+	public function isZero():bool{
+		return $this->coefficients[0] === 0;
 	}
 
 	/**
@@ -77,8 +112,6 @@ final class GenericGFPoly{
 			return $this->getCoefficient(0);
 		}
 
-		$size = \count($this->coefficients);
-
 		if($a === 1){
 			// Just the sum of the coefficients
 			$result = 0;
@@ -89,6 +122,7 @@ final class GenericGFPoly{
 			return $result;
 		}
 
+		$size   = count($this->coefficients);
 		$result = $this->coefficients[0];
 
 		for($i = 1; $i < $size; $i++){
@@ -99,14 +133,7 @@ final class GenericGFPoly{
 	}
 
 	/**
-	 * @return int $coefficient of x^degree term in this polynomial
-	 */
-	public function getCoefficient(int $degree):int{
-		return $this->coefficients[\count($this->coefficients) - 1 - $degree];
-	}
-
-	/**
-	 * @param GenericGFPoly $other
+	 * @param \Zxing\Common\GenericGFPoly $other
 	 *
 	 * @return \Zxing\Common\GenericGFPoly
 	 */
@@ -116,20 +143,11 @@ final class GenericGFPoly{
 			return new self([0]);
 		}
 
-		$aCoefficients = $this->coefficients;
-		$aLength       = \count($aCoefficients);
-		$bCoefficients = $other->coefficients;
-		$bLength       = \count($bCoefficients);
-		$product       = \array_fill(0, $aLength + $bLength - 1, 0);
+		$product = array_fill(0, count($this->coefficients) + count($other->coefficients) - 1, 0);
 
-		for($i = 0; $i < $aLength; $i++){
-			$aCoeff = $aCoefficients[$i];
-
-			for($j = 0; $j < $bLength; $j++){
-				$product[$i + $j] = GF256::addOrSubtract(
-					$product[$i + $j],
-					GF256::multiply($aCoeff, $bCoefficients[$j])
-				);
+		foreach($this->coefficients as $i => $aCoeff){
+			foreach($other->coefficients as $j => $bCoeff){
+				$product[$i + $j] = GF256::addOrSubtract($product[$i + $j], GF256::multiply($aCoeff, $bCoeff));
 			}
 		}
 
@@ -154,16 +172,21 @@ final class GenericGFPoly{
 		$inverseDenominatorLeadingTerm = GF256::inverse($denominatorLeadingTerm);
 
 		while($remainder->getDegree() >= $other->getDegree() && !$remainder->isZero()){
-			$degreeDifference  = $remainder->getDegree() - $other->getDegree();
-			$scale             = GF256::multiply($remainder->getCoefficient($remainder->getDegree()), $inverseDenominatorLeadingTerm);
-			$quotient          = $quotient->addOrSubtract(GF256::buildMonomial($degreeDifference, $scale));
-			$remainder         = $remainder->addOrSubtract($other->multiplyByMonomial($degreeDifference, $scale));
+			$degreeDifference = $remainder->getDegree() - $other->getDegree();
+			$scale            = GF256::multiply($remainder->getCoefficient($remainder->getDegree()), $inverseDenominatorLeadingTerm);
+			$quotient         = $quotient->addOrSubtract(GF256::buildMonomial($degreeDifference, $scale));
+			$remainder        = $remainder->addOrSubtract($other->multiplyByMonomial($degreeDifference, $scale));
 		}
 
 		return [$quotient, $remainder];
 
 	}
 
+	/**
+	 * @param int $scalar
+	 *
+	 * @return \Zxing\Common\GenericGFPoly
+	 */
 	public function multiplyInt(int $scalar):GenericGFPoly{
 
 		if($scalar === 0){
@@ -174,23 +197,21 @@ final class GenericGFPoly{
 			return $this;
 		}
 
-		$size    = \count($this->coefficients);
-		$product = \array_fill(0, $size, 0);
+		$product = array_fill(0, count($this->coefficients), 0);
 
-		for($i = 0; $i < $size; $i++){
-			$product[$i] = GF256::multiply($this->coefficients[$i], $scalar);
+		foreach($this->coefficients as $i => $coefficient){
+			$product[$i] = GF256::multiply($coefficient, $scalar);
 		}
 
 		return new self($product);
 	}
 
 	/**
-	 * @return bool true if this polynomial is the monomial "0"
+	 * @param int $degree
+	 * @param int $coefficient
+	 *
+	 * @return \Zxing\Common\GenericGFPoly
 	 */
-	public function isZero():bool{
-		return $this->coefficients[0] === 0;
-	}
-
 	public function multiplyByMonomial(int $degree, int $coefficient):GenericGFPoly{
 
 		if($degree < 0){
@@ -201,23 +222,20 @@ final class GenericGFPoly{
 			return new self([0]);
 		}
 
-		$size    = \count($this->coefficients);
-		$product = \array_fill(0, $size + $degree, 0);
+		$product = array_fill(0, count($this->coefficients) + $degree, 0);
 
-		for($i = 0; $i < $size; $i++){
-			$product[$i] = GF256::multiply($this->coefficients[$i], $coefficient);
+		foreach($this->coefficients as $i => $coeff){
+			$product[$i] = GF256::multiply($coeff, $coefficient);
 		}
 
 		return new self($product);
 	}
 
 	/**
-	 * @return int $degree of this polynomial
+	 * @param \Zxing\Common\GenericGFPoly $other
+	 *
+	 * @return \Zxing\Common\GenericGFPoly
 	 */
-	public function getDegree():int{
-		return \count($this->coefficients) - 1;
-	}
-
 	public function addOrSubtract(GenericGFPoly $other):GenericGFPoly{
 
 		if($this->isZero()){
@@ -231,18 +249,18 @@ final class GenericGFPoly{
 		$smallerCoefficients = $this->coefficients;
 		$largerCoefficients  = $other->coefficients;
 
-		if(\count($smallerCoefficients) > \count($largerCoefficients)){
+		if(count($smallerCoefficients) > count($largerCoefficients)){
 			$temp                = $smallerCoefficients;
 			$smallerCoefficients = $largerCoefficients;
 			$largerCoefficients  = $temp;
 		}
 
-		$sumDiff    = \array_fill(0, \count($largerCoefficients), 0);
-		$lengthDiff = \count($largerCoefficients) - \count($smallerCoefficients);
+		$sumDiff    = array_fill(0, count($largerCoefficients), 0);
+		$lengthDiff = count($largerCoefficients) - count($smallerCoefficients);
 		// Copy high-order terms only found in higher-degree polynomial's coefficients
 		$sumDiff = arraycopy($largerCoefficients, 0, $sumDiff, 0, $lengthDiff);
 
-		$countLargerCoefficients = \count($largerCoefficients);
+		$countLargerCoefficients = count($largerCoefficients);
 
 		for($i = $lengthDiff; $i < $countLargerCoefficients; $i++){
 			$sumDiff[$i] = GF256::addOrSubtract($smallerCoefficients[$i - $lengthDiff], $largerCoefficients[$i]);
