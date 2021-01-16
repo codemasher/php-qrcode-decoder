@@ -17,6 +17,9 @@
 
 namespace Zxing\Common;
 
+use chillerlan\QRCode\Common\GenericGFPoly;
+use chillerlan\QRCode\Common\GF256;
+
 /**
  * <p>Implements Reed-Solomon decoding, as the name implies.</p>
  *
@@ -95,7 +98,7 @@ final class ReedSolomonDecoder{
 	}
 
 	/**
-	 * @return \Zxing\Common\GenericGFPoly[] [sigma, omega]
+	 * @return \chillerlan\QRCode\Common\GenericGFPoly[] [sigma, omega]
 	 * @throws \Zxing\Common\ReedSolomonException
 	 */
 	private function runEuclideanAlgorithm(GenericGFPoly $a, GenericGFPoly $b, int $R):array{
