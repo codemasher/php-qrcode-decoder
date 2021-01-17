@@ -17,7 +17,7 @@
 
 namespace Zxing\Detector;
 
-use Zxing\Common\NotFoundException;
+use RuntimeException;
 use Zxing\Decoder\BitMatrix;
 
 /**
@@ -592,14 +592,13 @@ final class FinderPatternFinder{
 	 * @return \Zxing\Detector\FinderPattern[] the 3 best {@link FinderPattern}s from our list of candidates. The "best" are
 	 *         those that have been detected at least {@link #CENTER_QUORUM} times, and whose module
 	 *         size differs from the average among those patterns the least
-	 * @throws \Zxing\Common\NotFoundException if 3 such finder patterns do not exist
+	 * @throws \RuntimeException if 3 such finder patterns do not exist
 	 */
 	private function selectBestPatterns():array{
 		$startSize = \count($this->possibleCenters);
 
 		if($startSize < 3){
-			// Couldn't find enough finder patterns
-			throw new NotFoundException;
+			throw new RuntimeException('could not find enough finder patterns');
 		}
 
 		\usort(
@@ -684,7 +683,7 @@ final class FinderPatternFinder{
 		}
 
 		if($distortion === \PHP_FLOAT_MAX){
-			throw new NotFoundException;
+			throw new RuntimeException('finder patterns may be too distorted');
 		}
 
 		return $bestPatterns;

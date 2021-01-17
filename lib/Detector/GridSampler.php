@@ -17,8 +17,7 @@
 
 namespace Zxing\Detector;
 
-use Exception;
-use Zxing\Common\NotFoundException;
+use Exception, RuntimeException;
 use Zxing\Decoder\BitMatrix;
 
 /**
@@ -50,7 +49,7 @@ final class GridSampler{
 	 * @param \Zxing\Decoder\BitMatrix $image  image into which the points should map
 	 * @param array                    $points actual points in x1,y1,...,xn,yn form
 	 *
-	 * @throws \Zxing\Common\NotFoundException if an endpoint is lies outside the image boundaries
+	 * @throws \RuntimeException if an endpoint is lies outside the image boundaries
 	 */
 	protected function checkAndNudgePoints(BitMatrix $image, array $points):void{
 		$width  = $image->getWidth();
@@ -65,7 +64,7 @@ final class GridSampler{
 			$y = (int)$points[$offset + 1];
 
 			if($x < -1 || $x > $width || $y < -1 || $y > $height){
-				throw new NotFoundException('checkAndNudgePoints 1 '.\print_r([$x, $y, $width, $height], true));
+				throw new RuntimeException('checkAndNudgePoints 1 '.\print_r([$x, $y, $width, $height], true));
 			}
 
 			$nudged = false;
@@ -95,7 +94,7 @@ final class GridSampler{
 			$y = (int)$points[$offset + 1];
 
 			if($x < -1 || $x > $width || $y < -1 || $y > $height){
-				throw new NotFoundException('checkAndNudgePoints 2 '.\print_r([$x, $y, $width, $height], true));
+				throw new RuntimeException('checkAndNudgePoints 2 '.\print_r([$x, $y, $width, $height], true));
 			}
 
 			$nudged = false;
@@ -126,13 +125,13 @@ final class GridSampler{
 	 *
 	 * @return \Zxing\Decoder\BitMatrix representing a grid of points sampled from the image within a region
 	 *   defined by the "from" parameters
-	 * @throws NotFoundException if image can't be sampled, for example, if the transformation defined
+	 * @throws \RuntimeException if image can't be sampled, for example, if the transformation defined
 	 *   by the given points is invalid or results in sampling outside the image boundaries
 	 */
 	public function sampleGrid(BitMatrix $image, int $dimensionX, int $dimensionY, PerspectiveTransform $transform):BitMatrix{
 
 		if($dimensionX <= 0 || $dimensionY <= 0){
-			throw new NotFoundException();
+			throw new RuntimeException('invalid matrix size');
 		}
 
 		$bits   = new BitMatrix($dimensionX, $dimensionY);
@@ -168,7 +167,7 @@ final class GridSampler{
 				// This results in an ugly runtime exception despite our clever checks above -- can't have
 				// that. We could check each point's coordinates but that feels duplicative. We settle for
 				// catching and wrapping ArrayIndexOutOfBoundsException.
-				throw new NotFoundException();
+				throw new RuntimeException('ArrayIndexOutOfBoundsException');
 			}
 
 		}

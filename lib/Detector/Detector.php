@@ -18,9 +18,8 @@
 namespace Zxing\Detector;
 
 use chillerlan\QRCode\Common\Version;
-use Zxing\Common\NotFoundException;
 use Zxing\Decoder\BitMatrix;
-use Zxing\Decoder\FormatException;
+use Exception, RuntimeException;
 
 use function Zxing\Common\distance;
 
@@ -44,8 +43,7 @@ final class Detector{
 	/**
 	 * <p>Detects a QR Code in an image.</p>
 	 *
-	 * @throws \Zxing\Common\NotFoundException if QR Code cannot be found
-	 * @throws \Zxing\Decoder\FormatException if dimension mod 4 is not 1
+	 * @throws \RuntimeException
 	 */
 	public function detect():DetectorResult{/*Map<DecodeHintType,?>*/
 		$finder     = new FinderPatternFinder($this->image);
@@ -56,13 +54,13 @@ final class Detector{
 		$moduleSize = (float)$this->calculateModuleSize($topLeft, $topRight, $bottomLeft);
 
 		if($moduleSize < 1.0){
-			throw new NotFoundException();
+			throw new RuntimeException('module size < 1.0');
 		}
 
 		$dimension = $this->computeDimension($topLeft, $topRight, $bottomLeft, $moduleSize);
 
 		if($dimension % 4 !== 1){
-			throw new FormatException('dimension mod 4 is not 1');
+			throw new RuntimeException('dimension mod 4 is not 1');
 		}
 
 		$provisionalVersion      = new Version((int)(($dimension - 17) / 4));
@@ -70,7 +68,7 @@ final class Detector{
 
 		$alignmentPattern = null;
 		// Anything above version 1 has an alignment pattern
-		if(count($provisionalVersion->getAlignmentPattern()) > 0){
+		if(!empty($provisionalVersion->getAlignmentPattern())){
 
 			// Guess where a "bottom right" finder pattern would have been
 			$bottomRightX = $topRight->getX() - $topLeft->getX() + $bottomLeft->getX();
@@ -93,7 +91,7 @@ final class Detector{
 					);
 					break;
 				}
-				catch(NotFoundException $re){
+				catch(Exception $re){
 					// try next round
 				}
 			}
@@ -265,7 +263,7 @@ final class Detector{
 	 * <p>Computes the dimension (number of modules on a size) of the QR Code based on the position
 	 * of the finder patterns and estimated module size.</p>
 	 *
-	 * @throws \Zxing\Common\NotFoundException
+	 * @throws \RuntimeException
 	 */
 	private function computeDimension(
 		FinderPattern $topLeft,
@@ -286,7 +284,7 @@ final class Detector{
 				$dimension--;
 				break;
 			case 3:
-				throw new NotFoundException('estimated dimension: '.$dimension);
+				throw new RuntimeException('estimated dimension: '.$dimension);
 		}
 
 		return $dimension;
@@ -302,7 +300,7 @@ final class Detector{
 	 * @param float $allowanceFactor      number of pixels in all directions to search from the center
 	 *
 	 * @return \Zxing\Detector\AlignmentPattern if found, or null otherwise
-	 * @throws \Zxing\Common\NotFoundException if an unexpected error occurs during detection
+	 * @throws \RuntimeException if an unexpected error occurs during detection
 	 */
 	protected final function findAlignmentInRegion(
 		float $overallEstModuleSize,
@@ -316,14 +314,14 @@ final class Detector{
 		$alignmentAreaRightX = \min($this->image->getWidth() - 1, $estAlignmentX + $allowance);
 
 		if($alignmentAreaRightX - $alignmentAreaLeftX < $overallEstModuleSize * 3){
-			throw new NotFoundException();
+			throw new RuntimeException('no x alignment pattern found');
 		}
 
 		$alignmentAreaTopY    = \max(0, $estAlignmentY - $allowance);
 		$alignmentAreaBottomY = \min($this->image->getHeight() - 1, $estAlignmentY + $allowance);
 
 		if($alignmentAreaBottomY - $alignmentAreaTopY < $overallEstModuleSize * 3){
-			throw new NotFoundException();
+			throw new RuntimeException('no y alignment pattern found');
 		}
 
 		$alignmentFinder = new AlignmentPatternFinder(

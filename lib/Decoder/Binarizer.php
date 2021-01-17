@@ -17,7 +17,7 @@
 
 namespace Zxing\Decoder;
 
-use Zxing\Common\NotFoundException;
+use RuntimeException;
 
 /**
  * This class implements a local thresholding algorithm, which while slower than the
@@ -84,7 +84,7 @@ final class Binarizer{
 	}
 
 	/**
-	 * @throws \Zxing\Common\NotFoundException
+	 * @throws \RuntimeException
 	 */
 	private function estimateBlackPoint(array $buckets):int{
 		// Find the tallest peak in the histogram.
@@ -130,7 +130,7 @@ final class Binarizer{
 		// If there is too little contrast in the image to pick a meaningful black point, throw rather
 		// than waste time trying to decode the image, and risk false positives.
 		if($secondPeak - $firstPeak <= $numBuckets / 16){
-			throw new NotFoundException('no meaningful dark point found');
+			throw new RuntimeException('no meaningful dark point found');
 		}
 
 		// Find a valley between them that is low and closer to the white peak.

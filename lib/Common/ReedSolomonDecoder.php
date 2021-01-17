@@ -17,8 +17,11 @@
 
 namespace Zxing\Common;
 
-use chillerlan\QRCode\Common\GenericGFPoly;
-use chillerlan\QRCode\Common\GF256;
+use chillerlan\QRCode\Common\{GenericGFPoly, GF256};
+
+use RuntimeException;
+
+use function array_fill, count;
 
 /**
  * <p>Implements Reed-Solomon decoding, as the name implies.</p>
@@ -53,7 +56,7 @@ final class ReedSolomonDecoder{
 	 * @param int   $twoS     number of error-correction codewords available
 	 *
 	 * @return int[]
-	 * @throws ReedSolomonException if decoding fails for any reason
+	 * @throws \RuntimeException if decoding fails for any reason
 	 */
 	public function decode(array $received, int $twoS):array{
 		$poly                 = new GenericGFPoly($received);
@@ -88,7 +91,7 @@ final class ReedSolomonDecoder{
 			$position = $receivedCount - 1 - GF256::log($errorLocations[$i]);
 
 			if($position < 0){
-				throw new ReedSolomonException('Bad error location');
+				throw new RuntimeException('Bad error location');
 			}
 
 			$received[$position] = GF256::addOrSubtract($received[$position], $errorMagnitudes[$i]);
@@ -127,14 +130,14 @@ final class ReedSolomonDecoder{
 			$t = $q->multiply($tLast)->addOrSubtract($tLastLast);
 
 			if($r->getDegree() >= $rLast->getDegree()){
-				throw new ReedSolomonException('Division algorithm failed to reduce polynomial?');
+				throw new RuntimeException('Division algorithm failed to reduce polynomial?');
 			}
 		}
 
 		$sigmaTildeAtZero = $t->getCoefficient(0);
 
 		if($sigmaTildeAtZero === 0){
-			throw new ReedSolomonException('sigmaTilde(0) was zero');
+			throw new RuntimeException('sigmaTilde(0) was zero');
 		}
 
 		$inverse = GF256::inverse($sigmaTildeAtZero);
@@ -143,7 +146,7 @@ final class ReedSolomonDecoder{
 	}
 
 	/**
-	 * @throws \Zxing\Common\ReedSolomonException
+	 * @throws \RuntimeException
 	 */
 	private function findErrorLocations(GenericGFPoly $errorLocator):array{
 		// This is a direct application of Chien's search
@@ -164,7 +167,7 @@ final class ReedSolomonDecoder{
 		}
 
 		if($e !== $numErrors){
-			throw new ReedSolomonException('Error locator degree does not match number of roots');
+			throw new RuntimeException('Error locator degree does not match number of roots');
 		}
 
 		return $result;

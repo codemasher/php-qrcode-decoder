@@ -19,6 +19,7 @@ namespace Zxing\Decoder;
 
 use chillerlan\QRCode\Common\Version;
 use Zxing\Common\FormatInformation;
+use RuntimeException;
 
 use function Zxing\Common\numBitsDiffering;
 
@@ -35,13 +36,13 @@ final class BitMatrixParser{
 	/**
 	 * @param \Zxing\Decoder\BitMatrix $bitMatrix
 	 *
-	 * @throws \Zxing\Decoder\FormatException if dimension is not >= 21 and 1 mod 4
+	 * @throws \RuntimeException if dimension is not >= 21 and 1 mod 4
 	 */
 	public function __construct(BitMatrix $bitMatrix){
 		$dimension = $bitMatrix->getHeight();
 
 		if($dimension < 21 || ($dimension % 4) !== 1){
-			throw new FormatException('dimension is not >= 21, dimension mod 4 not 1');
+			throw new RuntimeException('dimension is not >= 21, dimension mod 4 not 1');
 		}
 
 		$this->bitMatrix = $bitMatrix;
@@ -53,7 +54,7 @@ final class BitMatrixParser{
 	 * QR Code.</p>
 	 *
 	 * @return array bytes encoded within the QR Code
-	 * @throws \Zxing\Decoder\FormatException if the exact number of bytes expected is not read
+	 * @throws \RuntimeException if the exact number of bytes expected is not read
 	 */
 	public function readCodewords():array{
 		$formatInfo = $this->readFormatInformation();
@@ -102,7 +103,7 @@ final class BitMatrixParser{
 		}
 
 		if($resultOffset !== $version->getTotalCodewords()){
-			throw new FormatException('offset differs from total codewords for version');
+			throw new RuntimeException('offset differs from total codewords for version');
 		}
 
 		return $result;
@@ -112,8 +113,8 @@ final class BitMatrixParser{
 	 * <p>Reads format information from one of its two locations within the QR Code.</p>
 	 *
 	 * @return \Zxing\Common\FormatInformation encapsulating the QR Code's format info
-	 * @throws \Zxing\Decoder\FormatException if both format information locations cannot be parsed as
-	 *                                        the valid encoding of format information
+	 * @throws \RuntimeException               if both format information locations cannot be parsed as
+	 *                                         the valid encoding of format information
 	 */
 	public function readFormatInformation():FormatInformation{
 
@@ -156,7 +157,7 @@ final class BitMatrixParser{
 			return $parsedFormatInfo;
 		}
 
-		throw new FormatException('failed to read format info');
+		throw new RuntimeException('failed to read format info');
 	}
 
 	private function copyBit(int $i, int $j, int $versionBits):int{
@@ -172,8 +173,8 @@ final class BitMatrixParser{
 	 * <p>Reads version information from one of its two locations within the QR Code.</p>
 	 *
 	 * @return \chillerlan\QRCode\Common\Version encapsulating the QR Code's version
-	 * @throws \Zxing\Decoder\FormatException if both version information locations cannot be parsed as
-	 *                                        the valid encoding of version information
+	 * @throws \RuntimeException                 if both version information locations cannot be parsed as
+	 *                                           the valid encoding of version information
 	 */
 	public function readVersion():Version{
 
@@ -223,7 +224,7 @@ final class BitMatrixParser{
 			return $theParsedVersion;
 		}
 
-		throw new FormatException('failed to read version');
+		throw new RuntimeException('failed to read version');
 	}
 
 	private function decodeVersionInformation(int $versionBits):?Version{

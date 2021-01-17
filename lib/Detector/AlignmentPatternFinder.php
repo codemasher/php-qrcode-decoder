@@ -17,7 +17,7 @@
 
 namespace Zxing\Detector;
 
-use Zxing\Common\NotFoundException;
+use RuntimeException;
 use Zxing\Decoder\BitMatrix;
 
 /**
@@ -79,7 +79,7 @@ final class AlignmentPatternFinder{
 	 * it's pretty performance-critical and so is written to be fast foremost.</p>
 	 *
 	 * @return \Zxing\Detector\AlignmentPattern if found
-	 * @throws \Zxing\Common\NotFoundException if not found
+	 * @throws \RuntimeException if not found
 	 */
 	public function find():AlignmentPattern{
 		$startX  = $this->startX;
@@ -163,7 +163,7 @@ final class AlignmentPatternFinder{
 			return $this->possibleCenters[0];
 		}
 
-		throw new NotFoundException();
+		throw new RuntimeException('no alignment pattern found');
 	}
 
 	/**

@@ -21,6 +21,7 @@ use Zxing\Common\{CharacterSetECI};
 use chillerlan\QRCode\Common\EccLevel;
 use chillerlan\QRCode\Common\Mode;
 use chillerlan\QRCode\Common\Version;
+use RuntimeException;
 
 /**
  * <p>QR Codes can encode text as bits in one of several modes, and can use multiple modes
@@ -48,7 +49,7 @@ final class DecodedBitStreamParser{
 	private array  $byteSegments;
 
 	/**
-	 * @throws \Zxing\Decoder\FormatException
+	 * @throws \RuntimeException
 	 */
 	public function decode(array $bytes, Version $version, EccLevel $ecLevel):DecoderResult{
 		$bits           = new BitSource($bytes);
@@ -77,7 +78,7 @@ final class DecodedBitStreamParser{
 			}
 			elseif($mode === Mode::DATA_STRCTURED_APPEND){
 				if($bits->available() < 16){
-					throw new FormatException();
+					throw new RuntimeException('structured append: not enough bits left');
 				}
 				// sequence number and parity is added later to the result metadata
 				// Read next 8 bits (symbol sequence #) and 8 bits (parity data), then continue
@@ -89,7 +90,7 @@ final class DecodedBitStreamParser{
 				$value                  = $this->parseECIValue($bits);
 				$currentCharacterSetECI = CharacterSetECI::getCharacterSetECIByValue($value);
 				if($currentCharacterSetECI === null){
-					throw new FormatException();
+					throw new RuntimeException('ECI: no valid character set found');
 				}
 			}
 			else{
@@ -119,7 +120,7 @@ final class DecodedBitStreamParser{
 						$this->decodeKanjiSegment($bits, $count);
 					}
 					else{
-						throw new FormatException();
+						throw new RuntimeException('invalid data mode');
 					}
 #				}
 			}
@@ -129,7 +130,7 @@ final class DecodedBitStreamParser{
 	}
 
 	/**
-	 * @throws \Zxing\Decoder\FormatException
+	 * @throws \RuntimeException
 	 */
 	private function parseECIValue(BitSource $bits):int{
 		$firstByte = $bits->readBits(8);
@@ -153,18 +154,18 @@ final class DecodedBitStreamParser{
 			return (($firstByte & 0x1F) << 16) | $secondThirdBytes;
 		}
 
-		throw new FormatException();
+		throw new RuntimeException();
 	}
 
 	/**
 	 * See specification GBT 18284-2000
 	 *
-	 * @throws \Zxing\Decoder\FormatException
+	 * @throws \RuntimeException
 	 */
 	private function decodeHanziSegment(BitSource $bits, int $count):void{
 		// Don't crash trying to read more bits than we have available.
 		if($count * 13 > $bits->available()){
-			throw new FormatException();
+			throw new RuntimeException();
 		}
 
 		// Each character will require 2 bytes. Read the characters as 2-byte pairs
@@ -190,18 +191,18 @@ final class DecodedBitStreamParser{
 	}
 
 	/**
-	 * @throws \Zxing\Decoder\FormatException
+	 * @throws \RuntimeException
 	 */
 	private function decodeNumericSegment(BitSource $bits, int $count):void{
 		// Read three digits at a time
 		while($count >= 3){
 			// Each 10 bits encodes three digits
 			if($bits->available() < 10){
-				throw new FormatException();
+				throw new RuntimeException();
 			}
 			$threeDigitsBits = $bits->readBits(10);
 			if($threeDigitsBits >= 1000){
-				throw new FormatException();
+				throw new RuntimeException();
 			}
 			$this->result .= $this->toAlphaNumericChar($threeDigitsBits / 100);
 			$this->result .= $this->toAlphaNumericChar(($threeDigitsBits / 10) % 10);
@@ -211,11 +212,11 @@ final class DecodedBitStreamParser{
 		if($count === 2){
 			// Two digits left over to read, encoded in 7 bits
 			if($bits->available() < 7){
-				throw new FormatException();
+				throw new RuntimeException();
 			}
 			$twoDigitsBits = $bits->readBits(7);
 			if($twoDigitsBits >= 100){
-				throw new FormatException();
+				throw new RuntimeException();
 			}
 			$this->result .= $this->toAlphaNumericChar($twoDigitsBits / 10);
 			$this->result .= $this->toAlphaNumericChar($twoDigitsBits % 10);
@@ -223,47 +224,47 @@ final class DecodedBitStreamParser{
 		elseif($count === 1){
 			// One digit left over to read
 			if($bits->available() < 4){
-				throw new FormatException();
+				throw new RuntimeException();
 			}
 			$digitBits = $bits->readBits(4);
 			if($digitBits >= 10){
-				throw new FormatException();
+				throw new RuntimeException();
 			}
 			$this->result .= $this->toAlphaNumericChar($digitBits);
 		}
 	}
 
 	/**
-	 * @throws \Zxing\Decoder\FormatException
+	 * @throws \RuntimeException
 	 */
 	private function toAlphaNumericChar(int $value):string{
 
 		if($value >= count(self::ALPHANUMERIC_CHARS)){
-			throw new FormatException();
+			throw new RuntimeException();
 		}
 
 		return self::ALPHANUMERIC_CHARS[$value];
 	}
 
 	/**
-	 * @throws \Zxing\Decoder\FormatException
+	 * @throws \RuntimeException
 	 */
 	private function decodeAlphanumericSegment(BitSource $bits, int $count, bool $fc1InEffect):void{
 		// Read two characters at a time
 		$start = \strlen($this->result);
 		while($count > 1){
 			if($bits->available() < 11){
-				throw new FormatException();
+				throw new RuntimeException();
 			}
 			$nextTwoCharsBits = $bits->readBits(11);
 			$this->result     .= $this->toAlphaNumericChar($nextTwoCharsBits / 45);
 			$this->result     .= $this->toAlphaNumericChar($nextTwoCharsBits % 45);
 			$count            -= 2;
 		}
-		if($count == 1){
+		if($count === 1){
 			// special case: one character left
 			if($bits->available() < 6){
-				throw new FormatException();
+				throw new RuntimeException();
 			}
 			$this->result .= $this->toAlphaNumericChar($bits->readBits(6));
 		}
@@ -286,13 +287,13 @@ final class DecodedBitStreamParser{
 	}
 
 	/**
-	 * @throws \Zxing\Decoder\FormatException
+	 * @throws \RuntimeException
 	 * @todo: why is this so slow??? and why is it slower with GD than Imagick???
 	 */
 	private function decodeByteSegment(BitSource $bits, int $count, CharacterSetECI $currentCharacterSetECI = null):void{
 		// Don't crash trying to read more bits than we have available.
 		if(8 * $count > $bits->available()){
-			throw new FormatException();
+			throw new RuntimeException();
 		}
 
 		$readBytes = [];
@@ -321,12 +322,12 @@ final class DecodedBitStreamParser{
 	}
 
 	/**
-	 * @throws \Zxing\Decoder\FormatException
+	 * @throws \RuntimeException
 	 */
 	private function decodeKanjiSegment(BitSource $bits, int $count):void{
 		// Don't crash trying to read more bits than we have available.
 		if($count * 13 > $bits->available()){
-			throw new FormatException();
+			throw new RuntimeException();
 		}
 
 		// Each character will require 2 bytes. Read the characters as 2-byte pairs

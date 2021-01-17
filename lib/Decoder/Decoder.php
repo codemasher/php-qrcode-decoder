@@ -19,10 +19,9 @@ namespace Zxing\Decoder;
 
 use chillerlan\QRCode\Common\EccLevel;
 use chillerlan\QRCode\Common\Version;
-use InvalidArgumentException;
-use Zxing\Common\{ReedSolomonDecoder};
+use Zxing\Common\ReedSolomonDecoder;
 use Zxing\Detector\Detector;
-use Zxing\ReaderException;
+use Exception, InvalidArgumentException;
 
 /**
  * <p>The main class which implements QR Code decoding -- as opposed to locating and extracting
@@ -74,16 +73,17 @@ final class Decoder{
 	 * @param \Zxing\Decoder\BitMatrix $bits booleans representing white/black QR Code modules
 	 *
 	 * @return \Zxing\Decoder\DecoderResult text and bytes encoded within the QR Code
-	 * @throws \Zxing\Decoder\FormatException|\Zxing\ReaderException if the QR Code cannot be decoded
+	 * @throws \Exception if the QR Code cannot be decoded
 	 */
 	public function decodeBits(BitMatrix $bits):DecoderResult{
+		$fe = null;
 
 		try{
 			// Construct a parser and read version, error-correction level
 			// clone the BitMatrix to avoid errors in case we run into mirroring
 			return $this->decodeParser(new BitMatrixParser(clone $bits));
 		}
-		catch(ReaderException $e){
+		catch(Exception $e){
 			$fe = $e;
 		}
 
@@ -110,9 +110,9 @@ final class Decoder{
 
 			return $this->decodeParser($parser);
 		}
-		catch(FormatException $e){// catch (FormatException | ChecksumException e) {
+		catch(Exception $e){
 			// Throw the exception from the original reading
-			if($fe instanceof ReaderException){
+			if($fe instanceof Exception){
 				throw $fe;
 			}
 
