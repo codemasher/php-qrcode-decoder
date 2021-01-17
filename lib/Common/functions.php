@@ -7,8 +7,7 @@ use function array_slice, array_splice, sqrt;
 const QRCODE_DECODER_INCLUDES = true;
 
 function arraycopy(array $srcArray, int $srcPos, array $destArray, int $destPos, int $length):array{
-	$srcArrayToCopy = array_slice($srcArray, $srcPos, $length);
-	array_splice($destArray, $destPos, $length, $srcArrayToCopy);
+	array_splice($destArray, $destPos, $length, array_slice($srcArray, $srcPos, $length));
 
 	return $destArray;
 }

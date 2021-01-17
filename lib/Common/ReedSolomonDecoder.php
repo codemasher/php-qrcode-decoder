@@ -52,20 +52,20 @@ final class ReedSolomonDecoder{
 	 * codewords. Really, this means it uses Reed-Solomon to detect and correct errors, in-place,
 	 * in the input.</p>
 	 *
-	 * @param array $received data and error-correction codewords
-	 * @param int   $twoS     number of error-correction codewords available
+	 * @param array $received        data and error-correction codewords
+	 * @param int   $numEccCodewords number of error-correction codewords available
 	 *
 	 * @return int[]
 	 * @throws \RuntimeException if decoding fails for any reason
 	 */
-	public function decode(array $received, int $twoS):array{
+	public function decode(array $received, int $numEccCodewords):array{
 		$poly                 = new GenericGFPoly($received);
-		$syndromeCoefficients = \array_fill(0, $twoS, 0);
+		$syndromeCoefficients = [];
 		$noError              = true;
 
-		for($i = 0; $i < $twoS; $i++){
-			$eval                                 = $poly->evaluateAt(GF256::exp($i));
-			$syndromeCoefficients[$twoS - 1 - $i] = $eval;
+		for($i = 0, $j = $numEccCodewords - 1; $i < $numEccCodewords; $i++, $j--){
+			$eval                     = $poly->evaluateAt(GF256::exp($i));
+			$syndromeCoefficients[$j] = $eval;
 
 			if($eval !== 0){
 				$noError = false;
@@ -77,15 +77,15 @@ final class ReedSolomonDecoder{
 		}
 
 		[$sigma, $omega] = $this->runEuclideanAlgorithm(
-			GF256::buildMonomial($twoS, 1),
+			GF256::buildMonomial($numEccCodewords, 1),
 			new GenericGFPoly($syndromeCoefficients),
-			$twoS
+			$numEccCodewords
 		);
 
 		$errorLocations      = $this->findErrorLocations($sigma);
 		$errorMagnitudes     = $this->findErrorMagnitudes($omega, $errorLocations);
-		$errorLocationsCount = \count($errorLocations);
-		$receivedCount       = \count($received);
+		$errorLocationsCount = count($errorLocations);
+		$receivedCount       = count($received);
 
 		for($i = 0; $i < $errorLocationsCount; $i++){
 			$position = $receivedCount - 1 - GF256::log($errorLocations[$i]);
@@ -94,7 +94,7 @@ final class ReedSolomonDecoder{
 				throw new RuntimeException('Bad error location');
 			}
 
-			$received[$position] = GF256::addOrSubtract($received[$position], $errorMagnitudes[$i]);
+			$received[$position] ^= $errorMagnitudes[$i];
 		}
 
 		return $received;
@@ -102,7 +102,7 @@ final class ReedSolomonDecoder{
 
 	/**
 	 * @return \chillerlan\QRCode\Common\GenericGFPoly[] [sigma, omega]
-	 * @throws \Zxing\Common\ReedSolomonException
+	 * @throws \RuntimeException
 	 */
 	private function runEuclideanAlgorithm(GenericGFPoly $a, GenericGFPoly $b, int $R):array{
 		// Assume a's degree is >= b's
@@ -156,7 +156,7 @@ final class ReedSolomonDecoder{
 			return [$errorLocator->getCoefficient(1)];
 		}
 
-		$result = \array_fill(0, $numErrors, 0);
+		$result = array_fill(0, $numErrors, 0);
 		$e      = 0;
 
 		for($i = 1; $i < 256 && $e < $numErrors; $i++){
@@ -175,8 +175,8 @@ final class ReedSolomonDecoder{
 
 	private function findErrorMagnitudes(GenericGFPoly $errorEvaluator, array $errorLocations):array{
 		// This is directly applying Forney's Formula
-		$s      = \count($errorLocations);
-		$result = \array_fill(0, $s, 0);
+		$s      = count($errorLocations);
+		$result = [];
 
 		for($i = 0; $i < $s; $i++){
 			$xiInverse   = GF256::inverse($errorLocations[$i]);
