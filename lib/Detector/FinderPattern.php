@@ -1,18 +1,14 @@
 <?php
-/*
- * Copyright 2007 ZXing authors
+/**
+ * Class FinderPattern
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * @filesource   FinderPattern.php
+ * @created      17.01.2021
+ * @package      chillerlan\QRCode\Detector
+ * @author       ZXing Authors
+ * @author       Smiley <smiley@chillerlan.net>
+ * @copyright    2021 Smiley
+ * @license      Apache-2.0
  */
 
 namespace Zxing\Detector;
@@ -28,18 +24,12 @@ use function Zxing\Common\{distance, squaredDistance};
  */
 final class FinderPattern extends ResultPoint{
 
-	private float $estimatedModuleSize;
-	private int   $count;
+	private int $count;
 
 	public function __construct(float $posX, float $posY, float $estimatedModuleSize, int $count = 1){
-		parent::__construct($posX, $posY);
+		parent::__construct($posX, $posY, $estimatedModuleSize);
 
-		$this->estimatedModuleSize = $estimatedModuleSize;
-		$this->count               = $count;
-	}
-
-	public function getEstimatedModuleSize():float{
-		return $this->estimatedModuleSize;
+		$this->count = $count;
 	}
 
 	public function getCount():int{
@@ -63,31 +53,19 @@ final class FinderPattern extends ResultPoint{
 	}
 
 	/**
-	 * <p>Determines if this finder pattern "about equals" a finder pattern at the stated
-	 * position and size -- meaning, it is at nearly the same center with nearly the same size.</p>
-	 */
-	public function aboutEquals(float $moduleSize, int $i, int $j):bool{
-
-		if(\abs($i - $this->y) <= $moduleSize && \abs($j - $this->x) <= $moduleSize){
-			$moduleSizeDiff = \abs($moduleSize - $this->estimatedModuleSize);
-
-			return $moduleSizeDiff <= 1.0 || $moduleSizeDiff <= $this->estimatedModuleSize;
-		}
-
-		return false;
-	}
-
-	/**
 	 * Combines this object's current estimate of a finder pattern position and module size
 	 * with a new estimate. It returns a new {@code FinderPattern} containing a weighted average
 	 * based on count.
 	 */
-	public function combineEstimate(int $i, int $j, float $newModuleSize):FinderPattern{
-		$combinedCount      = $this->count + 1;
-		$combinedX          = ($this->count * $this->x + $j) / $combinedCount;
-		$combinedY          = ($this->count * $this->y + $i) / $combinedCount;
-		$combinedModuleSize = ($this->count * $this->estimatedModuleSize + $newModuleSize) / $combinedCount;
+	public function combineEstimate(float $i, float $j, float $newModuleSize):FinderPattern{
+		$combinedCount = $this->count + 1;
 
-		return new self($combinedX, $combinedY, $combinedModuleSize, $combinedCount);
+		return new self(
+			($this->count * $this->x + $j) / $combinedCount,
+			($this->count * $this->y + $i) / $combinedCount,
+			($this->count * $this->estimatedModuleSize + $newModuleSize) / $combinedCount,
+			$combinedCount
+		);
 	}
+
 }

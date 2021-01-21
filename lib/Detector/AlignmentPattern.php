@@ -1,18 +1,14 @@
 <?php
-/*
- * Copyright 2007 ZXing authors
+/**
+ * Class AlignmentPattern
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * @filesource   AlignmentPattern.php
+ * @created      17.01.2021
+ * @package      chillerlan\QRCode\Detector
+ * @author       ZXing Authors
+ * @author       Smiley <smiley@chillerlan.net>
+ * @copyright    2021 Smiley
+ * @license      Apache-2.0
  */
 
 namespace Zxing\Detector;
@@ -25,39 +21,16 @@ namespace Zxing\Detector;
  */
 final class AlignmentPattern extends ResultPoint{
 
-	private float $estimatedModuleSize;
-
-	public function __construct(float $posX, float $posY, float $estimatedModuleSize){
-		parent::__construct($posX, $posY);
-
-		$this->estimatedModuleSize = $estimatedModuleSize;
-	}
-
-	/**
-	 * <p>Determines if this alignment pattern "about equals" an alignment pattern at the stated
-	 * position and size -- meaning, it is at nearly the same center with nearly the same size.</p>
-	 */
-	public function aboutEquals(float $moduleSize, int $i, int $j):bool{
-
-		if(\abs($i - $this->y) <= $moduleSize && \abs($j - $this->x) <= $moduleSize){
-			$moduleSizeDiff = \abs($moduleSize - $this->estimatedModuleSize);
-
-			return $moduleSizeDiff <= 1.0 || $moduleSizeDiff <= $this->estimatedModuleSize;
-		}
-
-		return false;
-	}
-
 	/**
 	 * Combines this object's current estimate of a finder pattern position and module size
 	 * with a new estimate. It returns a new {@code FinderPattern} containing an average of the two.
 	 */
-	public function combineEstimate(int $i, int $j, float $newModuleSize):AlignmentPattern{
-		$combinedX          = ($this->x + $j) / 2.0;
-		$combinedY          = ($this->y + $i) / 2.0;
-		$combinedModuleSize = ($this->estimatedModuleSize + $newModuleSize) / 2.0;
-
-		return new self($combinedX, $combinedY, $combinedModuleSize);
+	public function combineEstimate(float $i, float $j, float $newModuleSize):AlignmentPattern{
+		return new self(
+			($this->x + $j) / 2.0,
+			($this->y + $i) / 2.0,
+			($this->estimatedModuleSize + $newModuleSize) / 2.0
+		);
 	}
 
 }
