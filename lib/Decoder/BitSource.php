@@ -43,20 +43,6 @@ final class BitSource{
 	}
 
 	/**
-	 * @return int index of next bit in current byte which would be read by the next call to {@link #readBits(int)}.
-	 */
-	public function getBitOffset():int{
-		return $this->bitOffset;
-	}
-
-	/**
-	 * @return int index of next byte in input byte array which would be read by the next call to {@link #readBits(int)}.
-	 */
-	public function getByteOffset():int{
-		return $this->byteOffset;
-	}
-
-	/**
 	 * @param int $numBits number of bits to read
 	 *
 	 * @return int representing the bits read. The bits will appear as the least-significant
@@ -76,7 +62,7 @@ final class BitSource{
 			$bitsLeft        = 8 - $this->bitOffset;
 			$toRead          = $numBits < $bitsLeft ? $numBits : $bitsLeft;
 			$bitsToNotRead   = $bitsLeft - $toRead;
-			$mask            = (0xFF >> (8 - $toRead)) << $bitsToNotRead;
+			$mask            = (0xff >> (8 - $toRead)) << $bitsToNotRead;
 			$result          = ($this->bytes[$this->byteOffset] & $mask) >> $bitsToNotRead;
 			$numBits         -= $toRead;
 			$this->bitOffset += $toRead;
@@ -91,7 +77,7 @@ final class BitSource{
 		if($numBits > 0){
 
 			while($numBits >= 8){
-				$result = ($result << 8) | ($this->bytes[$this->byteOffset] & 0xFF);
+				$result = ($result << 8) | ($this->bytes[$this->byteOffset] & 0xff);
 				$this->byteOffset++;
 				$numBits -= 8;
 			}
@@ -99,7 +85,7 @@ final class BitSource{
 			// Finally read a partial byte
 			if($numBits > 0){
 				$bitsToNotRead   = 8 - $numBits;
-				$mask            = (0xFF >> $bitsToNotRead) << $bitsToNotRead;
+				$mask            = (0xff >> $bitsToNotRead) << $bitsToNotRead;
 				$result          = ($result << $numBits) | (($this->bytes[$this->byteOffset] & $mask) >> $bitsToNotRead);
 				$this->bitOffset += $numBits;
 			}

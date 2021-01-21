@@ -3,6 +3,7 @@
 namespace Zxing\Common;
 
 use function array_slice, array_splice, sqrt;
+use const PHP_INT_SIZE;
 
 const QRCODE_DECODER_INCLUDES = true;
 
@@ -13,13 +14,12 @@ function arraycopy(array $srcArray, int $srcPos, array $destArray, int $destPos,
 }
 
 function uRShift(int $a, int $b):int{
-	static $mask = (8 * PHP_INT_SIZE - 1);
 
 	if($b === 0){
 		return $a;
 	}
 
-	return ($a >> $b) & ~(1 << $mask >> ($b - 1));
+	return ($a >> $b) & ~((1 << (8 * PHP_INT_SIZE - 1)) >> ($b - 1));
 }
 
 function numBitsDiffering(int $a, int $b):int{
@@ -37,14 +37,14 @@ function numBitsDiffering(int $a, int $b):int{
 	return $count;
 }
 
-function squaredDistance(int $aX, int $aY, int $bX, int $bY):float{
+function squaredDistance(float $aX, float $aY, float $bX, float $bY):float{
 	$xDiff = $aX - $bX;
 	$yDiff = $aY - $bY;
 
 	return $xDiff * $xDiff + $yDiff * $yDiff;
 }
 
-function distance(int $aX, int $aY, int $bX, int $bY):float{
+function distance(float $aX, float $aY, float $bX, float $bY):float{
 	return sqrt(squaredDistance($aX, $aY, $bX, $bY));
 }
 

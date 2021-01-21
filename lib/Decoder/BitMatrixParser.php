@@ -260,19 +260,6 @@ final class BitMatrixParser{
 	}
 
 	/**
-	 * Revert the mask removal done while reading the code words. The bit matrix should revert to its original state.
-	 */
-	public function remask():void{
-
-		if($this->parsedFormatInfo === null){
-			return; // We have no format information, and have no data mask
-		}
-
-		$dimension = $this->bitMatrix->getHeight();
-		$this->bitMatrix->unmask($dimension, $this->parsedFormatInfo->getDataMask());
-	}
-
-	/**
 	 * Prepare the parser for a mirrored operation.
 	 * This flag has effect only on the {@link #readFormatInformation()} and the
 	 * {@link #readVersion()}. Before proceeding with {@link #readCodewords()} the

@@ -54,21 +54,21 @@ abstract class LuminanceSource{
 	 *         larger than width * height bytes on some platforms. Do not modify the contents
 	 *         of the result.
 	 */
-	final public function getMatrix():array{
+	public function getMatrix():array{
 		return $this->luminances;
 	}
 
 	/**
 	 * @return int The width of the bitmap.
 	 */
-	final public function getWidth():int{
+	public function getWidth():int{
 		return $this->width;
 	}
 
 	/**
 	 * @return int The height of the bitmap.
 	 */
-	final public function getHeight():int{
+	public function getHeight():int{
 		return $this->height;
 	}
 

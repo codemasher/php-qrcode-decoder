@@ -1,9 +1,23 @@
-<?php /** @noinspection PhpComposerExtensionStubsInspection */
+<?php
+/**
+ * Class IMagickLuminanceSource
+ *
+ * @filesource   IMagickLuminanceSource.php
+ * @created      17.01.2021
+ * @package      chillerlan\QRCode\Detector
+ * @author       ZXing Authors
+ * @author       Smiley <smiley@chillerlan.net>
+ * @copyright    2021 Smiley
+ * @license      Apache-2.0
+ *
+ * @noinspection PhpComposerExtensionStubsInspection
+ */
 
 namespace Zxing\Decoder;
 
 use Imagick;
 use InvalidArgumentException;
+use function count;
 
 /**
  * This class is used to help decode images from files which arrive as Imagick Resource
@@ -11,32 +25,28 @@ use InvalidArgumentException;
  */
 final class IMagickLuminanceSource extends LuminanceSource{
 
-	private Imagick $image;
+	private Imagick $imagick;
 
 	/**
 	 * IMagickLuminanceSource constructor.
 	 *
-	 * @param \Imagick $image
-	 * @param int      $width
-	 * @param int      $height
+	 * @param \Imagick $imagick
 	 *
 	 * @throws \InvalidArgumentException
 	 */
-	public function __construct(Imagick $image, int $width, int $height){
+	public function __construct(Imagick $imagick){
+		parent::__construct($imagick->getImageWidth(), $imagick->getImageHeight());
 
-		if(!$image instanceof Imagick){
-			throw new InvalidArgumentException('Invalid image source.');
-		}
+		$this->imagick = $imagick;
 
-		parent::__construct($width, $height);
+		$this->setLuminancePixels();
+	}
 
-		$this->image = $image;
+	private function setLuminancePixels():void{
+		$this->imagick->setImageColorspace(Imagick::COLORSPACE_GRAY);
+		$pixels = $this->imagick->exportImagePixels(1, 1, $this->width, $this->height, 'RGB', Imagick::PIXEL_CHAR);
 
-		$image->setImageColorspace(Imagick::COLORSPACE_GRAY);
-		// $image->newPseudoImage(0, 0, "magick:rose");
-		$pixels = $image->exportImagePixels(1, 1, $width, $height, 'RGB', Imagick::PIXEL_CHAR);
-
-		$countPixels = \count($pixels);
+		$countPixels = count($pixels);
 
 		for($i = 0; $i < $countPixels; $i += 3){
 			$this->setLuminancePixel($pixels[$i] & 0xff, $pixels[$i + 1] & 0xff, $pixels[$i + 2] & 0xff);

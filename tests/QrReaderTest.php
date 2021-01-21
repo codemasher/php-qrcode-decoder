@@ -42,7 +42,7 @@ class QrReaderTest extends TestCase{
 	public function testReaderGD(string $img, string $expected):void{
 		$reader = new QrReader(false);
 
-		self::assertSame($expected, (string)$reader->decode(__DIR__.'/qrcodes/'.$img, QrReader::SOURCE_TYPE_FILE));
+		self::assertSame($expected, (string)$reader->readFile(__DIR__.'/qrcodes/'.$img));
 	}
 
 	/**
@@ -56,14 +56,14 @@ class QrReaderTest extends TestCase{
 
 		$reader = new QrReader(true);
 
-		self::assertSame($expected, (string)$reader->decode(__DIR__.'/qrcodes/'.$img, QrReader::SOURCE_TYPE_FILE));
+		self::assertSame($expected, (string)$reader->readFile(__DIR__.'/qrcodes/'.$img));
 	}
 
 	public function dataTestProvider():array{
 		$data = [];
 		$str  = \str_repeat(self::loremipsum, 5);
 
-		foreach(\range(1, 40) as $v){
+		foreach(\range(1, 10) as $v){
 			$version = new Version($v);
 
 			foreach(EccLevel::MODES as $ecc => $_){
@@ -94,7 +94,7 @@ class QrReaderTest extends TestCase{
 		$imagedata = (new QRCode($options))->render($expected);
 
 		try{
-			$result = (new QrReader(true))->decode($imagedata, QrReader::SOURCE_TYPE_BLOB);
+			$result = (new QrReader(true))->readBlob($imagedata);
 		}
 		catch(\Exception $e){
 			self::markTestSkipped($version->getVersionNumber().$ecc->__toString().': '.$e->getMessage());
