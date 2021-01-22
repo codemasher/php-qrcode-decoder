@@ -29,15 +29,12 @@ final class Result{
 	private string  $text;
 	/** @var int[] */
 	private array   $rawBytes;
-	/** @var \Zxing\Detector\FinderPattern[] */
-	private ?array  $resultPoints;
 	private int     $timestamp;
 	private ?array  $resultMetadata = null;
 
-	public function __construct(string $text, array $rawBytes, array $resultPoints, int $timestamp = null){
+	public function __construct(string $text, array $rawBytes, int $timestamp = null){
 		$this->text         = $text;
 		$this->rawBytes     = $rawBytes;
-		$this->resultPoints = $resultPoints;
 		$this->timestamp    = $timestamp ?? \time();
 	}
 
@@ -57,16 +54,6 @@ final class Result{
 	 */
 	public function getRawBytes():array{
 		return $this->rawBytes;
-	}
-
-	/**
-	 * @return \Zxing\Detector\FinderPattern[]
-	 *         points related to the barcode in the image. These are typically points
-	 *         identifying finder patterns or the corners of the barcode. The exact meaning is
-	 *         specific to the type of barcode that was decoded.
-	 */
-	public function getResultPoints():array{
-		return $this->resultPoints;
 	}
 
 	/**

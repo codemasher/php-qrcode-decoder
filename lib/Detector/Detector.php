@@ -40,7 +40,7 @@ final class Detector{
 	/**
 	 * <p>Detects a QR Code in an image.</p>
 	 */
-	public function detect():array{
+	public function detect():BitMatrix{
 		[$bottomLeft, $topLeft, $topRight] = (new FinderPatternFinder($this->bitMatrix))->find();
 
 		$moduleSize         = (float)$this->calculateModuleSize($topLeft, $topRight, $bottomLeft);
@@ -73,12 +73,7 @@ final class Detector{
 
 		$transform = $this->createTransform($topLeft, $topRight, $bottomLeft, $dimension, $alignmentPattern);
 
-		return [
-			(new GridSampler)->sampleGrid($this->bitMatrix, $dimension, $transform),
-			$alignmentPattern === null
-				? [$bottomLeft, $topLeft, $topRight]
-				: [$bottomLeft, $topLeft, $topRight, $alignmentPattern],
-		];
+		return (new GridSampler)->sampleGrid($this->bitMatrix, $dimension, $transform);
 	}
 
 	/**

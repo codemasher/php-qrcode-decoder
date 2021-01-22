@@ -38,9 +38,9 @@ final class Decoder{
 	 */
 	public function decode(LuminanceSource $source):?Result{
 		$matrix          = (new Binarizer($source))->getBlackMatrix();
-		[$bits, $points] = (new Detector($matrix))->detect();
+		$bits            = (new Detector($matrix))->detect();
 		$decoderResult   = $this->decodeBits($bits);
-		$result          = new Result($decoderResult->getText(), $decoderResult->getRawBytes(), $points);
+		$result          = new Result($decoderResult->getText(), $decoderResult->getRawBytes());
 		$byteSegments    = $decoderResult->getByteSegments();
 
 		if($byteSegments !== null){
