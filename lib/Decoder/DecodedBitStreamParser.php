@@ -17,10 +17,7 @@
 
 namespace Zxing\Decoder;
 
-use Zxing\Common\{CharacterSetECI};
-use chillerlan\QRCode\Common\EccLevel;
-use chillerlan\QRCode\Common\Mode;
-use chillerlan\QRCode\Common\Version;
+use chillerlan\QRCode\Common\{BitBuffer, EccLevel, ECICharset, Mode, Version};
 use RuntimeException;
 
 /**
@@ -43,29 +40,29 @@ final class DecodedBitStreamParser{
 		' ', '$', '%', '*', '+', '-', '.', '/', ':',
 	];
 
-	private const GB2312_SUBSET = 1;
+#	private const GB2312_SUBSET = 1;
 
 	private string $result;
 	private array  $byteSegments;
+	private ?ECICharset $eciCharset = null;
 
 	/**
 	 * @throws \RuntimeException
 	 */
 	public function decode(array $bytes, Version $version, EccLevel $ecLevel):DecoderResult{
-		$bits           = new BitSource($bytes);
+		$bits           = new BitBuffer($bytes);
 		$symbolSequence = -1;
 		$parityData     = -1;
 		$versionNumber  = $version->getVersionNumber();
 
-		$currentCharacterSetECI = null;
-		$fc1InEffect            = false;
-
 		$this->result       = '';
 		$this->byteSegments = [];
+		$this->eciCharset   = null;
+		$fc1InEffect        = false;
 
 		// While still another segment to read...
 		while($bits->available() >= 4){
-			$mode = $bits->readBits(4); // mode is encoded by 4 bits
+			$mode = $bits->read(4); // mode is encoded by 4 bits
 
 			// OK, assume we're done. Really, a TERMINATOR mode should have been recorded here
 			if($mode === Mode::DATA_TERMINATOR){
@@ -82,23 +79,20 @@ final class DecodedBitStreamParser{
 				}
 				// sequence number and parity is added later to the result metadata
 				// Read next 8 bits (symbol sequence #) and 8 bits (parity data), then continue
-				$symbolSequence = $bits->readBits(8);
-				$parityData     = $bits->readBits(8);
+				$symbolSequence = $bits->read(8);
+				$parityData     = $bits->read(8);
 			}
 			elseif($mode === Mode::DATA_ECI){
 				// Count doesn't apply to ECI
-				$value                  = $this->parseECIValue($bits);
-				$currentCharacterSetECI = CharacterSetECI::getCharacterSetECIByValue($value);
-				if($currentCharacterSetECI === null){
-					throw new RuntimeException('ECI: no valid character set found');
-				}
+				$value            = $this->parseECIValue($bits);
+				$this->eciCharset = new ECICharset($value);
 			}
 			else{
 				// First handle Hanzi mode which does not start with character count
 /*				if($mode === Mode::DATA_HANZI){
 					//chinese mode contains a sub set indicator right after mode indicator
-					$subset     = $bits->readBits(4);
-					$countHanzi = $bits->readBits(Mode::getLengthBitsForVersion($mode, $versionNumber));
+					$subset     = $bits->read(4);
+					$countHanzi = $bits->read(Mode::getLengthBitsForVersion($mode, $versionNumber));
 					if($subset == self::GB2312_SUBSET){
 						$this->decodeHanziSegment($bits, $result, $countHanzi);
 					}
@@ -106,7 +100,7 @@ final class DecodedBitStreamParser{
 #				else{
 					// "Normal" QR code modes:
 					// How many characters will follow, encoded in this mode?
-					$count = $bits->readBits(Mode::getLengthBitsForVersion($mode, $versionNumber));
+					$count = $bits->read(Mode::getLengthBitsForVersion($mode, $versionNumber));
 					if($mode === Mode::DATA_NUMBER){
 						$this->decodeNumericSegment($bits, $count);
 					}
@@ -114,7 +108,7 @@ final class DecodedBitStreamParser{
 						$this->decodeAlphanumericSegment($bits, $count, $fc1InEffect);
 					}
 					elseif($mode === Mode::DATA_BYTE){
-						$this->decodeByteSegment($bits, $count, $currentCharacterSetECI);
+						$this->decodeByteSegment($bits, $count);
 					}
 					elseif($mode === Mode::DATA_KANJI){
 						$this->decodeKanjiSegment($bits, $count);
@@ -132,8 +126,8 @@ final class DecodedBitStreamParser{
 	/**
 	 * @throws \RuntimeException
 	 */
-	private function parseECIValue(BitSource $bits):int{
-		$firstByte = $bits->readBits(8);
+	private function parseECIValue(BitBuffer $bits):int{
+		$firstByte = $bits->read(8);
 
 		if(($firstByte & 0x80) === 0){
 			// just one byte
@@ -142,14 +136,14 @@ final class DecodedBitStreamParser{
 
 		if(($firstByte & 0xC0) === 0x80){
 			// two bytes
-			$secondByte = $bits->readBits(8);
+			$secondByte = $bits->read(8);
 
 			return (($firstByte & 0x3F) << 8) | $secondByte;
 		}
 
 		if(($firstByte & 0xE0) === 0xC0){
 			// three bytes
-			$secondThirdBytes = $bits->readBits(16);
+			$secondThirdBytes = $bits->read(16);
 
 			return (($firstByte & 0x1F) << 16) | $secondThirdBytes;
 		}
@@ -162,7 +156,7 @@ final class DecodedBitStreamParser{
 	 *
 	 * @throws \RuntimeException
 	 */
-	private function decodeHanziSegment(BitSource $bits, int $count):void{
+/*	private function decodeHanziSegment(BitBuffer $bits, int $count):void{
 		// Don't crash trying to read more bits than we have available.
 		if($count * 13 > $bits->available()){
 			throw new RuntimeException();
@@ -175,7 +169,7 @@ final class DecodedBitStreamParser{
 
 		while($count > 0){
 			// Each 13 bits encodes a 2-byte character
-			$twoBytes          = $bits->readBits(13);
+			$twoBytes          = $bits->read(13);
 			$assembledTwoBytes = (($twoBytes / 0x060) << 8) | ($twoBytes % 0x060);
 
 			$assembledTwoBytes += ($assembledTwoBytes < 0x00A00) // 0x003BF
@@ -189,18 +183,18 @@ final class DecodedBitStreamParser{
 		}
 		$this->result .= \mb_convert_encoding(\implode($buffer), 'UTF-8', 'GB2312');
 	}
-
+*/
 	/**
 	 * @throws \RuntimeException
 	 */
-	private function decodeNumericSegment(BitSource $bits, int $count):void{
+	private function decodeNumericSegment(BitBuffer $bits, int $count):void{
 		// Read three digits at a time
 		while($count >= 3){
 			// Each 10 bits encodes three digits
 			if($bits->available() < 10){
 				throw new RuntimeException();
 			}
-			$threeDigitsBits = $bits->readBits(10);
+			$threeDigitsBits = $bits->read(10);
 			if($threeDigitsBits >= 1000){
 				throw new RuntimeException();
 			}
@@ -214,7 +208,7 @@ final class DecodedBitStreamParser{
 			if($bits->available() < 7){
 				throw new RuntimeException();
 			}
-			$twoDigitsBits = $bits->readBits(7);
+			$twoDigitsBits = $bits->read(7);
 			if($twoDigitsBits >= 100){
 				throw new RuntimeException();
 			}
@@ -226,7 +220,7 @@ final class DecodedBitStreamParser{
 			if($bits->available() < 4){
 				throw new RuntimeException();
 			}
-			$digitBits = $bits->readBits(4);
+			$digitBits = $bits->read(4);
 			if($digitBits >= 10){
 				throw new RuntimeException();
 			}
@@ -249,14 +243,14 @@ final class DecodedBitStreamParser{
 	/**
 	 * @throws \RuntimeException
 	 */
-	private function decodeAlphanumericSegment(BitSource $bits, int $count, bool $fc1InEffect):void{
+	private function decodeAlphanumericSegment(BitBuffer $bits, int $count, bool $fc1InEffect):void{
 		// Read two characters at a time
 		$start = \strlen($this->result);
 		while($count > 1){
 			if($bits->available() < 11){
 				throw new RuntimeException();
 			}
-			$nextTwoCharsBits = $bits->readBits(11);
+			$nextTwoCharsBits = $bits->read(11);
 			$this->result     .= $this->toAlphaNumericChar($nextTwoCharsBits / 45);
 			$this->result     .= $this->toAlphaNumericChar($nextTwoCharsBits % 45);
 			$count            -= 2;
@@ -266,7 +260,7 @@ final class DecodedBitStreamParser{
 			if($bits->available() < 6){
 				throw new RuntimeException();
 			}
-			$this->result .= $this->toAlphaNumericChar($bits->readBits(6));
+			$this->result .= $this->toAlphaNumericChar($bits->read(6));
 		}
 		// See section 6.4.8.1, 6.4.8.2
 		if($fc1InEffect){
@@ -290,7 +284,7 @@ final class DecodedBitStreamParser{
 	 * @throws \RuntimeException
 	 * @todo: why is this so slow??? and why is it slower with GD than Imagick???
 	 */
-	private function decodeByteSegment(BitSource $bits, int $count, CharacterSetECI $currentCharacterSetECI = null):void{
+	private function decodeByteSegment(BitBuffer $bits, int $count):void{
 		// Don't crash trying to read more bits than we have available.
 		if(8 * $count > $bits->available()){
 			throw new RuntimeException();
@@ -298,25 +292,29 @@ final class DecodedBitStreamParser{
 
 		$readBytes = [];
 		for($i = 0; $i < $count; $i++){
-			$readBytes[$i] = $bits->readBits(8);//(byte)
+			$readBytes[$i] = $bits->read(8);
 		}
 
-		$text = \implode(\array_map('chr', $readBytes));
-#		$encoding = '';
-		if($currentCharacterSetECI === null){
-			// The spec isn't clear on this mode; see
-			// section 6.4.5: t does not say which encoding to assuming
-			// upon decoding. I have seen ISO-8859-1 used as well as
-			// Shift_JIS -- without anything like an ECI designator to
-			// give a hint.
+		$text = \implode('', \array_map('chr', $readBytes));
 
-#			$encoding = mb_detect_encoding($text, ['ISO-8859-1', 'SJIS', 'UTF-8']);
+		if($this->eciCharset !== null){
+			$encoding = $this->eciCharset->getName();
+
+			if($encoding === null){
+				// The spec isn't clear on this mode; see
+				// section 6.4.5: t does not say which encoding to assuming
+				// upon decoding. I have seen ISO-8859-1 used as well as
+				// Shift_JIS -- without anything like an ECI designator to
+				// give a hint.
+
+				$encoding = \mb_detect_encoding($text, ['ISO-8859-1', 'SJIS', 'UTF-8']);
+			}
+
+			$text = \mb_convert_encoding($text, $encoding);
+			$this->eciCharset = null;
 		}
-		else{
-#			$encoding = $currentCharacterSetECI->name();
-		}
-#		$this->result .= mb_convert_encoding($text ,$encoding);//(new String(readBytes, encoding));
-		$this->result .= $text;//(new String(readBytes, encoding));
+
+		$this->result .= $text;
 
 		$this->byteSegments = \array_merge($this->byteSegments, $readBytes);
 	}
@@ -324,7 +322,7 @@ final class DecodedBitStreamParser{
 	/**
 	 * @throws \RuntimeException
 	 */
-	private function decodeKanjiSegment(BitSource $bits, int $count):void{
+	private function decodeKanjiSegment(BitBuffer $bits, int $count):void{
 		// Don't crash trying to read more bits than we have available.
 		if($count * 13 > $bits->available()){
 			throw new RuntimeException();
@@ -336,7 +334,7 @@ final class DecodedBitStreamParser{
 		$offset = 0;
 		while($count > 0){
 			// Each 13 bits encodes a 2-byte character
-			$twoBytes          = $bits->readBits(13);
+			$twoBytes          = $bits->read(13);
 			$assembledTwoBytes = (($twoBytes / 0x0C0) << 8) | ($twoBytes % 0x0C0);
 
 			$assembledTwoBytes += ($assembledTwoBytes < 0x01F00)
