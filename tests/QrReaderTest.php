@@ -63,7 +63,7 @@ class QrReaderTest extends TestCase{
 		$data = [];
 		$str  = \str_repeat(self::loremipsum, 5);
 
-		foreach(\range(1, 10) as $v){
+		foreach(\range(1, 40) as $v){
 			$version = new Version($v);
 
 			foreach(EccLevel::MODES as $ecc => $_){
