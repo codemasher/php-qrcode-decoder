@@ -293,7 +293,7 @@ final class Detector{
 	 *
 	 * @return \Zxing\Detector\AlignmentPattern|null if found, or null otherwise
 	 */
-	private final function findAlignmentInRegion(
+	private function findAlignmentInRegion(
 		float $overallEstModuleSize,
 		int $estAlignmentX,
 		int $estAlignmentY,
