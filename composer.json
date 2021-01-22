@@ -32,10 +32,11 @@
 		"ext-gd": "*",
 		"ext-iconv": "*",
 		"ext-mbstring": "*",
-		"chillerlan/php-qrcode": "v5.x-dev"
+		"chillerlan/php-qrcode": "v5.x-dev#700af4b53ea40b37b477b02f53ce263b6a87ee97"
 	},
 	"require-dev": {
-		"phpunit/phpunit": "^9.5"
+		"phpunit/phpunit": "^9.5",
+		"phan/phan": "^4.0"
 	},
 	"autoload": {
 		"psr-4": {
