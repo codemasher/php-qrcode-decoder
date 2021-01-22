@@ -1,24 +1,21 @@
 <?php
-/*
- * Copyright 2007 ZXing authors
+/**
+ * Class AlignmentPatternFinder
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * @filesource   AlignmentPatternFinder.php
+ * @created      17.01.2021
+ * @package      chillerlan\QRCode\Detector
+ * @author       ZXing Authors
+ * @author       Smiley <smiley@chillerlan.net>
+ * @copyright    2021 Smiley
+ * @license      Apache-2.0
  */
 
 namespace Zxing\Detector;
 
-use RuntimeException;
 use Zxing\Decoder\BitMatrix;
+use function abs, count;
+
 
 /**
  * <p>This class attempts to find alignment patterns in a QR Code. Alignment patterns look like finder
@@ -36,11 +33,7 @@ use Zxing\Decoder\BitMatrix;
  */
 final class AlignmentPatternFinder{
 
-	private BitMatrix $image;
-	private int       $startX;
-	private int       $startY;
-	private int       $width;
-	private int       $height;
+	private BitMatrix $bitMatrix;
 	private float     $moduleSize;
 	/** @var \Zxing\Detector\AlignmentPattern[] */
 	private array $possibleCenters;
@@ -50,25 +43,10 @@ final class AlignmentPatternFinder{
 	 * <p>Creates a finder that will look in a portion of the whole image.</p>
 	 *
 	 * @param \Zxing\Decoder\BitMatrix $image      image to search
-	 * @param int                      $startX     left column from which to start searching
-	 * @param int                      $startY     top row from which to start searching
-	 * @param int                      $width      width of region to search
-	 * @param int                      $height     height of region to search
 	 * @param float                    $moduleSize estimated module size so far
 	 */
-	public function __construct(
-		BitMatrix $image,
-		int $startX,
-		int $startY,
-		int $width,
-		int $height,
-		float $moduleSize
-	){
-		$this->image                = $image;
-		$this->startX               = $startX;
-		$this->startY               = $startY;
-		$this->width                = $width;
-		$this->height               = $height;
+	public function __construct(BitMatrix $image, float $moduleSize){
+		$this->bitMatrix            = $image;
 		$this->moduleSize           = $moduleSize;
 		$this->possibleCenters      = [];
 		$this->crossCheckStateCount = [];
@@ -78,18 +56,20 @@ final class AlignmentPatternFinder{
 	 * <p>This method attempts to find the bottom-right alignment pattern in the image. It is a bit messy since
 	 * it's pretty performance-critical and so is written to be fast foremost.</p>
 	 *
-	 * @return \Zxing\Detector\AlignmentPattern if found
-	 * @throws \RuntimeException if not found
+	 * @param int $startX left column from which to start searching
+	 * @param int $startY top row from which to start searching
+	 * @param int $width  width of region to search
+	 * @param int $height height of region to search
+	 *
+	 * @return \Zxing\Detector\AlignmentPattern|null
 	 */
-	public function find():AlignmentPattern{
-		$startX  = $this->startX;
-		$height  = $this->height;
-		$maxJ    = $startX + $this->width;
-		$middleI = $this->startY + ($height / 2);
-		// We are looking for black/white/black modules in 1:1:1 ratio;
-		// this tracks the number of black/white/black modules seen so far
+	public function find(int $startX, int $startY, int $width, int $height):?AlignmentPattern{
+		$maxJ       = $startX + $width;
+		$middleI    = $startY + ($height / 2);
 		$stateCount = [];
 
+		// We are looking for black/white/black modules in 1:1:1 ratio;
+		// this tracks the number of black/white/black modules seen so far
 		for($iGen = 0; $iGen < $height; $iGen++){
 			// Search from middle outwards
 			$i             = (int)($middleI + (($iGen & 0x01) === 0 ? ($iGen + 1) / 2 : -(($iGen + 1) / 2)));
@@ -100,7 +80,7 @@ final class AlignmentPatternFinder{
 			// Burn off leading white pixels before anything else; if we start in the middle of
 			// a white run, it doesn't make sense to count its length, since we don't know if the
 			// white run continued to the left of the start point
-			while($j < $maxJ && !$this->image->get($j, $i)){
+			while($j < $maxJ && !$this->bitMatrix->get($j, $i)){
 				$j++;
 			}
 
@@ -108,16 +88,17 @@ final class AlignmentPatternFinder{
 
 			while($j < $maxJ){
 
-				if($this->image->get($j, $i)){
+				if($this->bitMatrix->get($j, $i)){
 					// Black pixel
 					if($currentState === 1){ // Counting black pixels
 						$stateCount[$currentState]++;
 					}
-					else{ // Counting white pixels
-
-						if($currentState === 2){ // A winner?
-
-							if($this->foundPatternCross($stateCount)){ // Yes
+					// Counting white pixels
+					else{
+						// A winner?
+						if($currentState === 2){
+							// Yes
+							if($this->foundPatternCross($stateCount)){
 								$confirmed = $this->handlePossibleCenter($stateCount, $i, $j);
 
 								if($confirmed !== null){
@@ -135,9 +116,10 @@ final class AlignmentPatternFinder{
 						}
 					}
 				}
-				else{ // White pixel
-
-					if($currentState === 1){ // Counting black pixels
+				// White pixel
+				else{
+					// Counting black pixels
+					if($currentState === 1){
 						$currentState++;
 					}
 
@@ -159,11 +141,11 @@ final class AlignmentPatternFinder{
 
 		// Hmm, nothing we saw was observed and confirmed twice. If we had
 		// any guess at all, return it.
-		if(\count($this->possibleCenters)){
+		if(count($this->possibleCenters)){
 			return $this->possibleCenters[0];
 		}
 
-		throw new RuntimeException('no alignment pattern found');
+		return null;
 	}
 
 	/**
@@ -177,7 +159,7 @@ final class AlignmentPatternFinder{
 		$maxVariance = $moduleSize / 2.0;
 
 		for($i = 0; $i < 3; $i++){
-			if(\abs($moduleSize - $stateCount[$i]) >= $maxVariance){
+			if(abs($moduleSize - $stateCount[$i]) >= $maxVariance){
 				return false;
 			}
 		}
@@ -202,7 +184,7 @@ final class AlignmentPatternFinder{
 		$centerJ         = $this->centerFromEnd($stateCount, $j);
 		$centerI         = $this->crossCheckVertical($i, (int)$centerJ, 2 * $stateCount[1], $stateCountTotal);
 
-		if(!is_nan($centerI)){
+		if($centerI !== null){
 			$estimatedModuleSize = (float)($stateCount[0] + $stateCount[1] + $stateCount[2]) / 3.0;
 
 			foreach($this->possibleCenters as $center){
@@ -244,10 +226,10 @@ final class AlignmentPatternFinder{
 	 *                      observed in any reading state, based on the results of the horizontal scan
 	 * @param int $originalStateCountTotal
 	 *
-	 * @return float vertical center of alignment pattern, or NAN if not found
+	 * @return float|null vertical center of alignment pattern, or null if not found
 	 */
-	private function crossCheckVertical(int $startI, int $centerJ, int $maxCount, int $originalStateCountTotal):float{
-		$maxI          = $this->image->getHeight();
+	private function crossCheckVertical(int $startI, int $centerJ, int $maxCount, int $originalStateCountTotal):?float{
+		$maxI          = $this->bitMatrix->getDimension();
 		$stateCount    = $this->crossCheckStateCount;
 		$stateCount[0] = 0;
 		$stateCount[1] = 0;
@@ -255,49 +237,53 @@ final class AlignmentPatternFinder{
 
 		// Start counting up from center
 		$i = $startI;
-		while($i >= 0 && $this->image->get($centerJ, $i) && $stateCount[1] <= $maxCount){
+		while($i >= 0 && $this->bitMatrix->get($centerJ, $i) && $stateCount[1] <= $maxCount){
 			$stateCount[1]++;
 			$i--;
 		}
 		// If already too many modules in this state or ran off the edge:
 		if($i < 0 || $stateCount[1] > $maxCount){
-			return \NAN;
+			return null;
 		}
 
-		while($i >= 0 && !$this->image->get($centerJ, $i) && $stateCount[0] <= $maxCount){
+		while($i >= 0 && !$this->bitMatrix->get($centerJ, $i) && $stateCount[0] <= $maxCount){
 			$stateCount[0]++;
 			$i--;
 		}
 
 		if($stateCount[0] > $maxCount){
-			return \NAN;
+			return null;
 		}
 
 		// Now also count down from center
 		$i = $startI + 1;
-		while($i < $maxI && $this->image->get($centerJ, $i) && $stateCount[1] <= $maxCount){
+		while($i < $maxI && $this->bitMatrix->get($centerJ, $i) && $stateCount[1] <= $maxCount){
 			$stateCount[1]++;
 			$i++;
 		}
 
 		if($i == $maxI || $stateCount[1] > $maxCount){
-			return \NAN;
+			return null;
 		}
 
-		while($i < $maxI && !$this->image->get($centerJ, $i) && $stateCount[2] <= $maxCount){
+		while($i < $maxI && !$this->bitMatrix->get($centerJ, $i) && $stateCount[2] <= $maxCount){
 			$stateCount[2]++;
 			$i++;
 		}
 
 		if($stateCount[2] > $maxCount){
-			return \NAN;
+			return null;
 		}
 
-		if(5 * \abs(($stateCount[0] + $stateCount[1] + $stateCount[2]) - $originalStateCountTotal) >= 2 * $originalStateCountTotal){
-			return \NAN;
+		if(5 * abs(($stateCount[0] + $stateCount[1] + $stateCount[2]) - $originalStateCountTotal) >= 2 * $originalStateCountTotal){
+			return null;
 		}
 
-		return $this->foundPatternCross($stateCount) ? $this->centerFromEnd($stateCount, $i) : \NAN;
+		if(!$this->foundPatternCross($stateCount)){
+			return null;
+		}
+
+		return $this->centerFromEnd($stateCount, $i);
 	}
 
 }

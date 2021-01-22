@@ -1,24 +1,21 @@
 <?php
-/*
-* Copyright 2007 ZXing authors
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*      http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+/**
+ * Class GridSampler
+ *
+ * @filesource   GridSampler.php
+ * @created      17.01.2021
+ * @package      chillerlan\QRCode\Detector
+ * @author       ZXing Authors
+ * @author       Smiley <smiley@chillerlan.net>
+ * @copyright    2021 Smiley
+ * @license      Apache-2.0
+ */
 
 namespace Zxing\Detector;
 
 use Exception, RuntimeException;
 use Zxing\Decoder\BitMatrix;
+use function array_fill, count, sprintf;
 
 /**
  * Implementations of this class can, given locations of finder patterns for a QR code in an
@@ -46,25 +43,23 @@ final class GridSampler{
 	 * <p>For efficiency, the method will check points from either end of the line until one is found
 	 * to be within the image. Because the set of points are assumed to be linear, this is valid.</p>
 	 *
-	 * @param \Zxing\Decoder\BitMatrix $image  image into which the points should map
-	 * @param array                    $points actual points in x1,y1,...,xn,yn form
+	 * @param \Zxing\Decoder\BitMatrix $bitMatrix image into which the points should map
+	 * @param float[]                  $points    actual points in x1,y1,...,xn,yn form
 	 *
 	 * @throws \RuntimeException if an endpoint is lies outside the image boundaries
 	 */
-	protected function checkAndNudgePoints(BitMatrix $image, array $points):void{
-		$width  = $image->getWidth();
-		$height = $image->getHeight();
+	private function checkAndNudgePoints(BitMatrix $bitMatrix, array $points):void{
+		$dimension = $bitMatrix->getDimension();
+		$nudged    = true;
+		$max       = count($points);
+
 		// Check and nudge points from start until we see some that are OK:
-		$nudged = true;
-
-		$max = \count($points);
-
 		for($offset = 0; $offset < $max && $nudged; $offset += 2){
 			$x = (int)$points[$offset];
 			$y = (int)$points[$offset + 1];
 
-			if($x < -1 || $x > $width || $y < -1 || $y > $height){
-				throw new RuntimeException('checkAndNudgePoints 1 '.\print_r([$x, $y, $width, $height], true));
+			if($x < -1 || $x > $dimension || $y < -1 || $y > $dimension){
+				throw new RuntimeException(sprintf('checkAndNudgePoints 1, x: %s, y: %s, d: %s', $x, $y, $dimension));
 			}
 
 			$nudged = false;
@@ -73,28 +68,28 @@ final class GridSampler{
 				$points[$offset] = 0.0;
 				$nudged          = true;
 			}
-			elseif($x === $width){
-				$points[$offset] = $width - 1;
+			elseif($x === $dimension){
+				$points[$offset] = $dimension - 1;
 				$nudged          = true;
 			}
 			if($y === -1){
 				$points[$offset + 1] = 0.0;
 				$nudged              = true;
 			}
-			elseif($y === $height){
-				$points[$offset + 1] = $height - 1;
+			elseif($y === $dimension){
+				$points[$offset + 1] = $dimension - 1;
 				$nudged              = true;
 			}
 		}
 		// Check and nudge points from end:
 		$nudged = true;
 
-		for($offset = \count($points) - 2; $offset >= 0 && $nudged; $offset -= 2){
+		for($offset = count($points) - 2; $offset >= 0 && $nudged; $offset -= 2){
 			$x = (int)$points[$offset];
 			$y = (int)$points[$offset + 1];
 
-			if($x < -1 || $x > $width || $y < -1 || $y > $height){
-				throw new RuntimeException('checkAndNudgePoints 2 '.\print_r([$x, $y, $width, $height], true));
+			if($x < -1 || $x > $dimension || $y < -1 || $y > $dimension){
+				throw new RuntimeException(sprintf('checkAndNudgePoints 2, x: %s, y: %s, d: %s', $x, $y, $dimension));
 			}
 
 			$nudged = false;
@@ -103,16 +98,16 @@ final class GridSampler{
 				$points[$offset] = 0.0;
 				$nudged          = true;
 			}
-			elseif($x === $width){
-				$points[$offset] = $width - 1;
+			elseif($x === $dimension){
+				$points[$offset] = $dimension - 1;
 				$nudged          = true;
 			}
 			if($y === -1){
 				$points[$offset + 1] = 0.0;
 				$nudged              = true;
 			}
-			elseif($y === $height){
-				$points[$offset + 1] = $height - 1;
+			elseif($y === $dimension){
+				$points[$offset + 1] = $dimension - 1;
 				$nudged              = true;
 			}
 		}
@@ -128,17 +123,17 @@ final class GridSampler{
 	 * @throws \RuntimeException if image can't be sampled, for example, if the transformation defined
 	 *   by the given points is invalid or results in sampling outside the image boundaries
 	 */
-	public function sampleGrid(BitMatrix $image, int $dimensionX, int $dimensionY, PerspectiveTransform $transform):BitMatrix{
+	public function sampleGrid(BitMatrix $image, int $dimension, PerspectiveTransform $transform):BitMatrix{
 
-		if($dimensionX <= 0 || $dimensionY <= 0){
+		if($dimension <= 0){
 			throw new RuntimeException('invalid matrix size');
 		}
 
-		$bits   = new BitMatrix($dimensionX, $dimensionY);
-		$points = \array_fill(0, 2 * $dimensionX, 0.0);
+		$bits   = new BitMatrix($dimension);
+		$points = array_fill(0, 2 * $dimension, 0.0);
 
-		for($y = 0; $y < $dimensionY; $y++){
-			$max    = \count($points);
+		for($y = 0; $y < $dimension; $y++){
+			$max    = count($points);
 			$iValue = (float)$y + 0.5;
 
 			for($x = 0; $x < $max; $x += 2){

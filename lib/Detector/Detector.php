@@ -1,27 +1,24 @@
 <?php
-/*
-* Copyright 2007 ZXing authors
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*      http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+/**
+ * Class Detector
+ *
+ * @filesource   Detector.php
+ * @created      17.01.2021
+ * @package      chillerlan\QRCode\Detector
+ * @author       ZXing Authors
+ * @author       Smiley <smiley@chillerlan.net>
+ * @copyright    2021 Smiley
+ * @license      Apache-2.0
+ */
 
 namespace Zxing\Detector;
 
+use RuntimeException;
 use chillerlan\QRCode\Common\Version;
 use Zxing\Decoder\BitMatrix;
-use Exception, RuntimeException;
-
 use function Zxing\Common\distance;
+use function abs, is_nan, max, min, round;
+use const NAN;
 
 /**
  * <p>Encapsulates logic that can detect a QR Code in an image, even if the QR Code
@@ -31,93 +28,77 @@ use function Zxing\Common\distance;
  */
 final class Detector{
 
-	private BitMatrix $image;
+	private BitMatrix $bitMatrix;
 
 	/**
 	 * Detector constructor.
 	 */
 	public function __construct(BitMatrix $image){
-		$this->image = $image;
+		$this->bitMatrix = $image;
 	}
 
 	/**
 	 * <p>Detects a QR Code in an image.</p>
-	 *
-	 * @throws \RuntimeException
 	 */
-	public function detect():DetectorResult{/*Map<DecodeHintType,?>*/
-		$finder     = new FinderPatternFinder($this->image);
-		$info       = $finder->find();
-		$topLeft    = $info->getTopLeft();
-		$topRight   = $info->getTopRight();
-		$bottomLeft = $info->getBottomLeft();
-		$moduleSize = (float)$this->calculateModuleSize($topLeft, $topRight, $bottomLeft);
+	public function detect():array{
+		[$bottomLeft, $topLeft, $topRight] = (new FinderPatternFinder($this->bitMatrix))->find();
 
-		if($moduleSize < 1.0){
-			throw new RuntimeException('module size < 1.0');
-		}
+		$moduleSize         = (float)$this->calculateModuleSize($topLeft, $topRight, $bottomLeft);
+		$dimension          = $this->computeDimension($topLeft, $topRight, $bottomLeft, $moduleSize);
+		$provisionalVersion = new Version((int)(($dimension - 17) / 4));
+		$alignmentPattern   = null;
 
-		$dimension = $this->computeDimension($topLeft, $topRight, $bottomLeft, $moduleSize);
-
-		if($dimension % 4 !== 1){
-			throw new RuntimeException('dimension mod 4 is not 1');
-		}
-
-		$provisionalVersion      = new Version((int)(($dimension - 17) / 4));
-		$modulesBetweenFPCenters = $provisionalVersion->getDimension() - 7;
-
-		$alignmentPattern = null;
 		// Anything above version 1 has an alignment pattern
 		if(!empty($provisionalVersion->getAlignmentPattern())){
-
 			// Guess where a "bottom right" finder pattern would have been
 			$bottomRightX = $topRight->getX() - $topLeft->getX() + $bottomLeft->getX();
 			$bottomRightY = $topRight->getY() - $topLeft->getY() + $bottomLeft->getY();
 
 			// Estimate that alignment pattern is closer by 3 modules
 			// from "bottom right" to known top left location
-			$correctionToTopLeft = 1.0 - 3.0 / (float)$modulesBetweenFPCenters;
+			$correctionToTopLeft = 1.0 - 3.0 / (float)($provisionalVersion->getDimension() - 7);
 			$estAlignmentX       = (int)($topLeft->getX() + $correctionToTopLeft * ($bottomRightX - $topLeft->getX()));
 			$estAlignmentY       = (int)($topLeft->getY() + $correctionToTopLeft * ($bottomRightY - $topLeft->getY()));
 
 			// Kind of arbitrary -- expand search radius before giving up
 			for($i = 4; $i <= 16; $i <<= 1){//??????????
-				try{
-					$alignmentPattern = $this->findAlignmentInRegion(
-						$moduleSize,
-						$estAlignmentX,
-						$estAlignmentY,
-						(float)$i
-					);
+				$alignmentPattern = $this->findAlignmentInRegion($moduleSize, $estAlignmentX, $estAlignmentY, (float)$i);
+
+				if($alignmentPattern !== null){
 					break;
-				}
-				catch(Exception $re){
-					// try next round
 				}
 			}
 			// If we didn't find alignment pattern... well try anyway without it
 		}
 
 		$transform = $this->createTransform($topLeft, $topRight, $bottomLeft, $dimension, $alignmentPattern);
-		$bits      = (new GridSampler)->sampleGrid($this->image, $dimension, $dimension, $transform);
 
-		$points = $alignmentPattern === null
-			? [$bottomLeft, $topLeft, $topRight]
-			: [$bottomLeft, $topLeft, $topRight, $alignmentPattern];
-
-		return new DetectorResult($bits, $points);
+		return [
+			(new GridSampler)->sampleGrid($this->bitMatrix, $dimension, $transform),
+			$alignmentPattern === null
+				? [$bottomLeft, $topLeft, $topRight]
+				: [$bottomLeft, $topLeft, $topRight, $alignmentPattern],
+		];
 	}
 
 	/**
 	 * <p>Computes an average estimated module size based on estimated derived from the positions
 	 * of the three finder patterns.</p>
+	 *
+	 * @throws \RuntimeException
 	 */
-	protected function calculateModuleSize(FinderPattern $topLeft, FinderPattern $topRight, FinderPattern $bottomLeft):float{
+	private function calculateModuleSize(FinderPattern $topLeft, FinderPattern $topRight, FinderPattern $bottomLeft):float{
 		// Take the average
-		return (
+		$moduleSize = (
 			$this->calculateModuleSizeOneWay($topLeft, $topRight) +
 			$this->calculateModuleSizeOneWay($topLeft, $bottomLeft)
 		) / 2.0;
+
+		if($moduleSize < 1.0){
+			throw new RuntimeException('module size < 1.0');
+		}
+
+		return $moduleSize;
 	}
 
 	/**
@@ -129,23 +110,23 @@ final class Detector{
 
 		$moduleSizeEst1 = $this->sizeOfBlackWhiteBlackRunBothWays(
 			$pattern->getX(),
-			(int)$pattern->getY(),
-			(int)$otherPattern->getX(),
-			(int)$otherPattern->getY()
+			$pattern->getY(),
+			$otherPattern->getX(),
+			$otherPattern->getY()
 		);
 
 		$moduleSizeEst2 = $this->sizeOfBlackWhiteBlackRunBothWays(
-			(int)$otherPattern->getX(),
-			(int)$otherPattern->getY(),
-			(int)$pattern->getX(),
-			(int)$pattern->getY()
+			$otherPattern->getX(),
+			$otherPattern->getY(),
+			$pattern->getX(),
+			$pattern->getY()
 		);
 
-		if(\is_nan($moduleSizeEst1)){
+		if(is_nan($moduleSizeEst1)){
 			return $moduleSizeEst2 / 7.0;
 		}
 
-		if(\is_nan($moduleSizeEst2)){
+		if(is_nan($moduleSizeEst2)){
 			return $moduleSizeEst1 / 7.0;
 		}
 		// Average them, and divide by 7 since we've counted the width of 3 black modules,
@@ -158,37 +139,36 @@ final class Detector{
 	 * a finder pattern by looking for a black-white-black run from the center in the direction
 	 * of another po$(another finder pattern center), and in the opposite direction too.</p>
 	 */
-	private function sizeOfBlackWhiteBlackRunBothWays(int $fromX, int $fromY, int $toX, int $toY):float{
-
-		$result = $this->sizeOfBlackWhiteBlackRun($fromX, $fromY, $toX, $toY);
-
+	private function sizeOfBlackWhiteBlackRunBothWays(float $fromX, float $fromY, float $toX, float $toY):float{
+		$result    = $this->sizeOfBlackWhiteBlackRun((int)$fromX, (int)$fromY, (int)$toX, (int)$toY);
+		$dimension = $this->bitMatrix->getDimension();
 		// Now count other way -- don't run off image though of course
-		$scale    = 1.0;
-		$otherToX = $fromX - ($toX - $fromX);
+		$scale     = 1.0;
+		$otherToX  = $fromX - ($toX - $fromX);
 
 		if($otherToX < 0){
-			$scale    = (float)$fromX / (float)($fromX - $otherToX);
+			$scale    = $fromX / ($fromX - $otherToX);
 			$otherToX = 0;
 		}
-		elseif($otherToX >= $this->image->getWidth()){
-			$scale    = (float)($this->image->getWidth() - 1 - $fromX) / (float)($otherToX - $fromX);
-			$otherToX = $this->image->getWidth() - 1;
+		elseif($otherToX >= $dimension){
+			$scale    = ($dimension - 1 - $fromX) / ($otherToX - $fromX);
+			$otherToX = $dimension - 1;
 		}
 
 		$otherToY = (int)($fromY - ($toY - $fromY) * $scale);
 		$scale    = 1.0;
 
 		if($otherToY < 0){
-			$scale    = (float)$fromY / (float)($fromY - $otherToY);
+			$scale    = $fromY / ($fromY - $otherToY);
 			$otherToY = 0;
 		}
-		elseif($otherToY >= $this->image->getHeight()){
-			$scale    = (float)($this->image->getHeight() - 1 - $fromY) / (float)($otherToY - $fromY);
-			$otherToY = $this->image->getHeight() - 1;
+		elseif($otherToY >= $dimension){
+			$scale    = ($dimension - 1 - $fromY) / ($otherToY - $fromY);
+			$otherToY = $dimension - 1;
 		}
 
 		$otherToX = (int)($fromX + ($otherToX - $fromX) * $scale);
-		$result   += $this->sizeOfBlackWhiteBlackRun($fromX, $fromY, $otherToX, $otherToY);
+		$result   += $this->sizeOfBlackWhiteBlackRun((int)$fromX, (int)$fromY, (int)$otherToX, (int)$otherToY);
 
 		// Middle pixel is double-counted this way; subtract 1
 		return $result - 1.0;
@@ -205,7 +185,8 @@ final class Detector{
 	private function sizeOfBlackWhiteBlackRun(int $fromX, int $fromY, int $toX, int $toY):float{
 		// Mild variant of Bresenham's algorithm;
 		// see http://en.wikipedia.org/wiki/Bresenham's_line_algorithm
-		$steep = \abs($toY - $fromY) > \abs($toX - $fromX);
+		$steep = abs($toY - $fromY) > abs($toX - $fromX);
+
 		if($steep){
 			$temp  = $fromX;
 			$fromX = $fromY;
@@ -215,16 +196,17 @@ final class Detector{
 			$toY   = $temp;
 		}
 
-		$dx    = \abs($toX - $fromX);
-		$dy    = \abs($toY - $fromY);
+		$dx    = abs($toX - $fromX);
+		$dy    = abs($toY - $fromY);
 		$error = -$dx / 2;
 		$xstep = $fromX < $toX ? 1 : -1;
 		$ystep = $fromY < $toY ? 1 : -1;
 
 		// In black pixels, looking for white, first or second time.
-		$state = 0;
+		$state  = 0;
 		// Loop up until x == toX, but not beyond
 		$xLimit = $toX + $xstep;
+
 		for($x = $fromX, $y = $fromY; $x !== $xLimit; $x += $xstep){
 			$realX = $steep ? $y : $x;
 			$realY = $steep ? $x : $y;
@@ -232,22 +214,28 @@ final class Detector{
 			// Does current pixel mean we have moved white to black or vice versa?
 			// Scanning black in state 0,2 and white in state 1, so if we find the wrong
 			// color, advance to next state or end if we are in state 2 already
-			if(($state === 1) === $this->image->get($realX, $realY)){
+			if(($state === 1) === $this->bitMatrix->get($realX, $realY)){
+
 				if($state === 2){
 					return distance($x, $y, $fromX, $fromY);
 				}
+
 				$state++;
 			}
 
 			$error += $dy;
+
 			if($error > 0){
+
 				if($y === $toY){
 					break;
 				}
+
 				$y     += $ystep;
 				$error -= $dx;
 			}
 		}
+
 		// Found black-white-black; give the benefit of the doubt that the next pixel outside the image
 		// is "white" so this last po$at (toX+xStep,toY) is the right ending. This is really a
 		// small approximation; (toX+xStep,toY+yStep) might be really correct. Ignore this.
@@ -256,7 +244,7 @@ final class Detector{
 		}
 
 		// else we didn't find even black-white-black; no estimate is really possible
-		return \NAN;
+		return NAN;
 	}
 
 	/**
@@ -271,8 +259,8 @@ final class Detector{
 		FinderPattern $bottomLeft,
 		float $moduleSize
 	):int{
-		$tltrCentersDimension = (int)\round($topLeft->distance($topRight) / $moduleSize);
-		$tlblCentersDimension = (int)\round($topLeft->distance($bottomLeft) / $moduleSize);
+		$tltrCentersDimension = (int)round($topLeft->distance($topRight) / $moduleSize);
+		$tlblCentersDimension = (int)round($topLeft->distance($bottomLeft) / $moduleSize);
 		$dimension            = (int)((($tltrCentersDimension + $tlblCentersDimension) / 2) + 7);
 
 		switch($dimension % 4){
@@ -287,6 +275,10 @@ final class Detector{
 				throw new RuntimeException('estimated dimension: '.$dimension);
 		}
 
+		if($dimension % 4 !== 1){
+			throw new RuntimeException('dimension mod 4 is not 1');
+		}
+
 		return $dimension;
 	}
 
@@ -299,41 +291,37 @@ final class Detector{
 	 * @param int   $estAlignmentY        y coordinate of above
 	 * @param float $allowanceFactor      number of pixels in all directions to search from the center
 	 *
-	 * @return \Zxing\Detector\AlignmentPattern if found, or null otherwise
-	 * @throws \RuntimeException if an unexpected error occurs during detection
+	 * @return \Zxing\Detector\AlignmentPattern|null if found, or null otherwise
 	 */
-	protected final function findAlignmentInRegion(
+	private final function findAlignmentInRegion(
 		float $overallEstModuleSize,
 		int $estAlignmentX,
 		int $estAlignmentY,
 		float $allowanceFactor
-	):AlignmentPattern{
+	):?AlignmentPattern{
 		// Look for an alignment pattern (3 modules in size) around where it should be
+		$dimension           = $this->bitMatrix->getDimension();
 		$allowance           = (int)($allowanceFactor * $overallEstModuleSize);
-		$alignmentAreaLeftX  = \max(0, $estAlignmentX - $allowance);
-		$alignmentAreaRightX = \min($this->image->getWidth() - 1, $estAlignmentX + $allowance);
+		$alignmentAreaLeftX  = max(0, $estAlignmentX - $allowance);
+		$alignmentAreaRightX = min($dimension - 1, $estAlignmentX + $allowance);
 
 		if($alignmentAreaRightX - $alignmentAreaLeftX < $overallEstModuleSize * 3){
-			throw new RuntimeException('no x alignment pattern found');
+			return null;
 		}
 
-		$alignmentAreaTopY    = \max(0, $estAlignmentY - $allowance);
-		$alignmentAreaBottomY = \min($this->image->getHeight() - 1, $estAlignmentY + $allowance);
+		$alignmentAreaTopY    = max(0, $estAlignmentY - $allowance);
+		$alignmentAreaBottomY = min($dimension - 1, $estAlignmentY + $allowance);
 
 		if($alignmentAreaBottomY - $alignmentAreaTopY < $overallEstModuleSize * 3){
-			throw new RuntimeException('no y alignment pattern found');
+			return null;
 		}
 
-		$alignmentFinder = new AlignmentPatternFinder(
-			$this->image,
+		return (new AlignmentPatternFinder($this->bitMatrix, $overallEstModuleSize))->find(
 			$alignmentAreaLeftX,
 			$alignmentAreaTopY,
 			$alignmentAreaRightX - $alignmentAreaLeftX,
 			$alignmentAreaBottomY - $alignmentAreaTopY,
-			$overallEstModuleSize,
 		);
-
-		return $alignmentFinder->find();
 	}
 
 	/**
@@ -363,22 +351,14 @@ final class Detector{
 		}
 
 		return PerspectiveTransform::quadrilateralToQuadrilateral(
-			3.5,
-			3.5,
-			$dimMinusThree,
-			3.5,
-			$sourceBottomRightX,
-			$sourceBottomRightY,
-			3.5,
-			$dimMinusThree,
-			$topLeft->getX(),
-			$topLeft->getY(),
-			$topRight->getX(),
-			$topRight->getY(),
-			$bottomRightX,
-			$bottomRightY,
-			$bottomLeft->getX(),
-			$bottomLeft->getY()
+			3.5, 3.5,
+			$dimMinusThree, 3.5,
+			$sourceBottomRightX, $sourceBottomRightY,
+			3.5, $dimMinusThree,
+			$topLeft->getX(), $topLeft->getY(),
+			$topRight->getX(), $topRight->getY(),
+			$bottomRightX, $bottomRightY,
+			$bottomLeft->getX(), $bottomLeft->getY()
 		);
 	}
 
