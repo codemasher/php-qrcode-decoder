@@ -18,6 +18,7 @@
 namespace Zxing\Decoder;
 
 use RuntimeException;
+use function array_fill, count, max;
 
 /**
  * This class implements a local thresholding algorithm, which while slower than the
@@ -51,36 +52,9 @@ final class Binarizer{
 	private const LUMINANCE_BUCKETS = 32;
 
 	private LuminanceSource $source;
-	private array           $luminances;
-	private array           $buckets;
 
 	public function __construct(LuminanceSource $source){
-		$this->source     = $source;
-		$this->luminances = [];
-		$this->buckets    = \array_fill(0, self::LUMINANCE_BUCKETS, 0);
-		$this->source     = $source;
-	}
-
-	/**
-	 * @return LuminanceSource
-	 */
-	final public function getLuminanceSource():LuminanceSource{
-		return $this->source;
-	}
-
-	/**
-	 * Does not sharpen the data, as this call is intended to only be used by 2D Readers.
-	 */
-	private function initArrays(int $luminanceSize):void{
-
-		if(\count($this->luminances) < $luminanceSize){
-			$this->luminances = [];
-		}
-
-		for($x = 0; $x < self::LUMINANCE_BUCKETS; $x++){
-			$this->buckets[$x] = 0;
-		}
-
+		$this->source = $source;
 	}
 
 	/**
@@ -88,7 +62,7 @@ final class Binarizer{
 	 */
 	private function estimateBlackPoint(array $buckets):int{
 		// Find the tallest peak in the histogram.
-		$numBuckets     = \count($buckets);
+		$numBuckets     = count($buckets);
 		$maxBucketCount = 0;
 		$firstPeak      = 0;
 		$firstPeakSize  = 0;
@@ -163,12 +137,11 @@ final class Binarizer{
 	 * @return BitMatrix The 2D array of bits for the image (true means black).
 	 */
 	public function getBlackMatrix():BitMatrix{
-		$source = $this->getLuminanceSource();
-		$width  = $source->getWidth();
-		$height = $source->getHeight();
+		$width  = $this->source->getWidth();
+		$height = $this->source->getHeight();
 
 		if($width >= self::MINIMUM_DIMENSION && $height >= self::MINIMUM_DIMENSION){
-			$luminances = $source->getMatrix();
+			$luminances = $this->source->getMatrix();
 			$subWidth   = $width >> self::BLOCK_SIZE_POWER;
 
 			if(($width & self::BLOCK_SIZE_MASK) !== 0){
@@ -191,33 +164,32 @@ final class Binarizer{
 	}
 
 	public function getHistogramBlackMatrix():BitMatrix{
-		$source = $this->getLuminanceSource();
-		$width  = $source->getWidth();
-		$height = $source->getHeight();
-		$matrix = new BitMatrix($width, $height);
+		$width  = $this->source->getWidth();
+		$height = $this->source->getHeight();
+		$matrix = new BitMatrix(max($width, $height));
 
 		// Quickly calculates the histogram by sampling four rows from the image. This proved to be
 		// more robust on the blackbox tests than sampling a diagonal as we used to do.
-		$this->initArrays($width);
-		$localBuckets = $this->buckets;
+		$luminances = [];
+		$buckets    = array_fill(0, self::LUMINANCE_BUCKETS, 0);
 
 		for($y = 1; $y < 5; $y++){
 			$row             = (int)($height * $y / 5);
-			$localLuminances = $source->getRow($row, $this->luminances);
+			$localLuminances = $this->source->getRow($row, $luminances);
 			$right           = (int)(($width * 4) / 5);
 
 			for($x = (int)($width / 5); $x < $right; $x++){
 				$pixel = $localLuminances[(int)$x] & 0xff;
-				$localBuckets[$pixel >> self::LUMINANCE_SHIFT]++;
+				$buckets[$pixel >> self::LUMINANCE_SHIFT]++;
 			}
 		}
 
-		$blackPoint = $this->estimateBlackPoint($localBuckets);
+		$blackPoint = $this->estimateBlackPoint($buckets);
 
 		// We delay reading the entire image luminance until the black point estimation succeeds.
 		// Although we end up reading four rows twice, it is consistent with our motto of
 		// "fail quickly" which is necessary for continuous scanning.
-		$localLuminances = $source->getMatrix();
+		$localLuminances = $this->source->getMatrix();
 
 		for($y = 0; $y < $height; $y++){
 			$offset = $y * $width;
@@ -240,10 +212,10 @@ final class Binarizer{
 	 *  http://groups.google.com/group/zxing/browse_thread/thread/d06efa2c35a7ddc0
 	 */
 	private function calculateBlackPoints(array $luminances, int $subWidth, int $subHeight, int $width, int $height):array{
-		$blackPoints = \array_fill(0, $subHeight, 0);
+		$blackPoints = array_fill(0, $subHeight, 0);
 
 		foreach($blackPoints as $key => $point){
-			$blackPoints[$key] = \array_fill(0, $subWidth, 0);
+			$blackPoints[$key] = array_fill(0, $subWidth, 0);
 		}
 
 		for($y = 0; $y < $subHeight; $y++){
@@ -263,13 +235,13 @@ final class Binarizer{
 				}
 
 				$sum = 0;
-				$min = 0xFF;
+				$min = 255;
 				$max = 0;
 
 				for($yy = 0, $offset = $yoffset * $width + $xoffset; $yy < self::BLOCK_SIZE; $yy++, $offset += $width){
 
 					for($xx = 0; $xx < self::BLOCK_SIZE; $xx++){
-						$pixel = (int)($luminances[(int)($offset + $xx)]) & 0xFF;
+						$pixel = (int)($luminances[(int)($offset + $xx)]) & 0xff;
 						$sum   += $pixel;
 						// still looking for good contrast
 						if($pixel < $min){
@@ -286,7 +258,7 @@ final class Binarizer{
 						// finish the rest of the rows quickly
 						for($yy++, $offset += $width; $yy < self::BLOCK_SIZE; $yy++, $offset += $width){
 							for($xx = 0; $xx < self::BLOCK_SIZE; $xx++){
-								$sum += $luminances[$offset + $xx] & 0xFF;
+								$sum += $luminances[$offset + $xx] & 0xff;
 							}
 						}
 					}
@@ -340,7 +312,7 @@ final class Binarizer{
 		int $height,
 		array $blackPoints
 	):BitMatrix{
-		$matrix = new BitMatrix($width, $height);
+		$matrix = new BitMatrix(max($width, $height));
 
 		for($y = 0; $y < $subHeight; $y++){
 			$yoffset    = ($y << self::BLOCK_SIZE_POWER);
@@ -373,7 +345,7 @@ final class Binarizer{
 				for($j = 0, $o = $yoffset * $width + $xoffset; $j < self::BLOCK_SIZE; $j++, $o += $width){
 					for($i = 0; $i < self::BLOCK_SIZE; $i++){
 						// Comparison needs to be <= so that black == 0 pixels are black even if the threshold is 0.
-						if(($luminances[$o + $i] & 0xFF) <= $average){
+						if(($luminances[$o + $i] & 0xff) <= $average){
 							$matrix->set($xoffset + $i, $yoffset + $j);
 						}
 					}

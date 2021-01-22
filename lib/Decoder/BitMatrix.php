@@ -2,24 +2,23 @@
 
 namespace Zxing\Decoder;
 
+use chillerlan\QRCode\Common\MaskPattern;
 use chillerlan\QRCode\Common\Version;
-use Closure;
 use InvalidArgumentException;
 
 use function Zxing\Common\uRShift;
+use function array_fill, count;
 
 final class BitMatrix{
 
-	private int   $width;
-	private int   $height;
+	private int   $dimension;
 	private int   $rowSize;
 	private array $bits;
 
-	public function __construct(int $width, int $height = null, int $rowSize = null, array $bits = null){
-		$this->width   = $width;
-		$this->height  = $height ?? $width;
-		$this->rowSize = $rowSize ?? ((int)(($this->width + 31) / 32));
-		$this->bits    = $bits ?? \array_fill(0, $this->rowSize * $this->height, 0);
+	public function __construct(int $dimension){
+		$this->dimension = $dimension;
+		$this->rowSize   = ((int)(($this->dimension + 0x1f) / 0x20));
+		$this->bits      = array_fill(0, $this->rowSize * $this->dimension, 0);
 	}
 
 	/**
@@ -29,23 +28,20 @@ final class BitMatrix{
 	 * @param int $y ;  The vertical component (i.e. which row)
 	 */
 	public function set(int $x, int $y):void{
-		$offset = (int)($y * $this->rowSize + ($x / 32));
+		$offset = (int)($y * $this->rowSize + ($x / 0x20));
 
 		$this->bits[$offset] ??= 0;
-
-		$bob                 = $this->bits[$offset];
-		$bob                 |= 1 << ($x & 0x1f);
-		$this->bits[$offset] |= ($bob);
+		$this->bits[$offset] |= ($this->bits[$offset] |= 1 << ($x & 0x1f));
 	}
 
-	/**1 << (249 & 0x1f)
-	 * <p>Flips the given bit.</p>
+	/**
+	 * <p>Flips the given bit. 1 << (0xf9 & 0x1f)</p>
 	 *
 	 * @param int $x ;  The horizontal component (i.e. which column)
 	 * @param int $y ;  The vertical component (i.e. which row)
 	 */
 	public function flip(int $x, int $y):void{
-		$offset = $y * $this->rowSize + (int)($x / 32);
+		$offset = $y * $this->rowSize + (int)($x / 0x20);
 
 		$this->bits[$offset] = ($this->bits[$offset] ^ (1 << ($x & 0x1f)));
 	}
@@ -73,31 +69,25 @@ final class BitMatrix{
 		$right  = $left + $width;
 		$bottom = $top + $height;
 
-		if($bottom > $this->height || $right > $this->width){ //> this.height || right > this.width
+		if($bottom > $this->dimension || $right > $this->dimension){
 			throw new InvalidArgumentException('The region must fit inside the matrix');
 		}
 
 		for($y = $top; $y < $bottom; $y++){
-			$offset = $y * $this->rowSize;
+			$yOffset = $y * $this->rowSize;
 
 			for($x = $left; $x < $right; $x++){
-				$this->bits[$offset + (int)($x / 32)] = ($this->bits[$offset + (int)($x / 32)] |= 1 << ($x & 0x1f));
+				$xOffset              = $yOffset + (int)($x / 0x20);
+				$this->bits[$xOffset] = ($this->bits[$xOffset] |= 1 << ($x & 0x1f));
 			}
 		}
 	}
 
 	/**
-	 * @return int The width of the matrix
+	 * @return int The dimension (width/height) of the matrix
 	 */
-	public function getWidth():int{
-		return $this->width;
-	}
-
-	/**
-	 * @return int The height of the matrix
-	 */
-	public function getHeight():int{
-		return $this->height;
+	public function getDimension():int{
+		return $this->dimension;
 	}
 
 	/**
@@ -109,11 +99,9 @@ final class BitMatrix{
 	 * @return bool value of given bit in matrix
 	 */
 	public function get(int $x, int $y):bool{
-		$offset = (int)($y * $this->rowSize + ($x / 32));
+		$offset = (int)($y * $this->rowSize + ($x / 0x20));
 
-		if(!isset($this->bits[$offset])){
-			$this->bits[$offset] = 0;
-		}
+		$this->bits[$offset] ??= 0;
 
 		return (uRShift($this->bits[$offset], ($x & 0x1f)) & 1) !== 0;
 	}
@@ -135,7 +123,7 @@ final class BitMatrix{
 
 		// Alignment patterns
 		$apc = $version->getAlignmentPattern();
-		$max = \count($apc);
+		$max = count($apc);
 
 		for($x = 0; $x < $max; $x++){
 			$i = $apc[$x] - 2;
@@ -170,9 +158,9 @@ final class BitMatrix{
 	 */
 	public function mirror():void{
 
-		for($x = 0; $x < $this->getWidth(); $x++){
-			for($y = $x + 1; $y < $this->getHeight(); $y++){
-				if($this->get($x, $y) != $this->get($y, $x)){
+		for($x = 0; $x < $this->dimension; $x++){
+			for($y = $x + 1; $y < $this->dimension; $y++){
+				if($this->get($x, $y) !== $this->get($y, $x)){
 					$this->flip($y, $x);
 					$this->flip($x, $y);
 				}
@@ -198,36 +186,15 @@ final class BitMatrix{
 	 *
 	 */
 	public function unmask(int $dimension, int $maskPattern):void{
-		$mask = $this->getMask($maskPattern);
+		$mask = (new MaskPattern($maskPattern))->getMask();
 
-		for($i = 0; $i < $dimension; $i++){
-			for($j = 0; $j < $dimension; $j++){
-				if($mask($i, $j) === 0){
-					$this->flip($j, $i);
+		for($y = 0; $y < $dimension; $y++){
+			for($x = 0; $x < $dimension; $x++){
+				if($mask($x, $y) === 0){
+					$this->flip($x, $y);
 				}
 			}
 		}
-
-	}
-
-	/**
-	 * @param int $maskPattern a value between 0 and 7 indicating one of the eight possible
-	 *                         data mask patterns a QR Code may use
-	 *
-	 * @return \Closure
-	 */
-	private function getMask(int $maskPattern):Closure{
-
-		return [
-			0b000 => fn($i, $j):int => ($i + $j) % 2,
-			0b001 => fn($i, $j):int => $i % 2,
-			0b010 => fn($i, $j):int => $j % 3,
-			0b011 => fn($i, $j):int => ($i + $j) % 3,
-			0b100 => fn($i, $j):int => ((int)($i / 2) + (int)($j / 3)) % 2,
-			0b101 => fn($i, $j):int => (($i * $j) % 2) + (($i * $j) % 3),
-			0b110 => fn($i, $j):int => ((($i * $j) % 2) + (($i * $j) % 3)) % 2,
-			0b111 => fn($i, $j):int => ((($i * $j) % 3) + (($i + $j) % 2)) % 2,
-		][$maskPattern];
 
 	}
 

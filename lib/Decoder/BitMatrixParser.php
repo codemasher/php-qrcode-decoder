@@ -39,7 +39,7 @@ final class BitMatrixParser{
 	 * @throws \RuntimeException if dimension is not >= 21 and 1 mod 4
 	 */
 	public function __construct(BitMatrix $bitMatrix){
-		$dimension = $bitMatrix->getHeight();
+		$dimension = $bitMatrix->getDimension();
 
 		if($dimension < 21 || ($dimension % 4) !== 1){
 			throw new RuntimeException('dimension is not >= 21, dimension mod 4 not 1');
@@ -62,7 +62,7 @@ final class BitMatrixParser{
 
 		// Get the data mask for the format used in this QR Code. This will exclude
 		// some bits from reading as we wind through the bit matrix.
-		$dimension = $this->bitMatrix->getHeight();
+		$dimension = $this->bitMatrix->getDimension();
 		$this->bitMatrix->unmask($dimension, $formatInfo->getDataMask());
 		$functionPattern = $this->bitMatrix->buildFunctionPattern($version);
 
@@ -99,7 +99,7 @@ final class BitMatrixParser{
 					}
 				}
 			}
-			$readingUp ^= true; // readingUp = !readingUp; // switch directions
+			$readingUp = !$readingUp; // switch directions
 		}
 
 		if($resultOffset !== $version->getTotalCodewords()){
@@ -118,7 +118,7 @@ final class BitMatrixParser{
 	 */
 	public function readFormatInformation():FormatInformation{
 
-		if($this->parsedFormatInfo != null){
+		if($this->parsedFormatInfo !== null){
 			return $this->parsedFormatInfo;
 		}
 
@@ -139,7 +139,7 @@ final class BitMatrixParser{
 		}
 
 		// Read the top-right/bottom-left pattern too
-		$dimension       = $this->bitMatrix->getHeight();
+		$dimension       = $this->bitMatrix->getDimension();
 		$formatInfoBits2 = 0;
 		$jMin            = $dimension - 7;
 
@@ -182,7 +182,7 @@ final class BitMatrixParser{
 			return $this->parsedVersion;
 		}
 
-		$dimension          = $this->bitMatrix->getHeight();
+		$dimension          = $this->bitMatrix->getDimension();
 		$provisionalVersion = ($dimension - 17) / 4;
 
 		if($provisionalVersion <= 6){

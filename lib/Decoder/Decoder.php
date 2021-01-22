@@ -17,11 +17,11 @@
 
 namespace Zxing\Decoder;
 
-use chillerlan\QRCode\Common\EccLevel;
-use chillerlan\QRCode\Common\Version;
+use Exception, InvalidArgumentException;
+use chillerlan\QRCode\Common\{EccLevel, Version};
 use Zxing\Common\ReedSolomonDecoder;
 use Zxing\Detector\Detector;
-use Exception, InvalidArgumentException;
+use function count, array_fill;
 
 /**
  * <p>The main class which implements QR Code decoding -- as opposed to locating and extracting
@@ -31,23 +31,17 @@ use Exception, InvalidArgumentException;
  */
 final class Decoder{
 
-	private ?BitMatrix $matrix = null;
-
 	/**
 	 * @param \Zxing\Decoder\LuminanceSource $source
 	 *
 	 * @return \Zxing\Decoder\Result|null
 	 */
 	public function decode(LuminanceSource $source):?Result{
-
-		if($this->matrix === null){
-			$this->matrix = (new Binarizer($source))->getBlackMatrix();
-		}
-
-		$detectorResult = (new Detector($this->matrix))->detect();
-		$decoderResult  = $this->decodeBits($detectorResult->getBits());
-		$result         = new Result($decoderResult->getText(), $decoderResult->getRawBytes(), $detectorResult->getPoints());
-		$byteSegments   = $decoderResult->getByteSegments();
+		$matrix          = (new Binarizer($source))->getBlackMatrix();
+		[$bits, $points] = (new Detector($matrix))->detect();
+		$decoderResult   = $this->decodeBits($bits);
+		$result          = new Result($decoderResult->getText(), $decoderResult->getRawBytes(), $points);
+		$byteSegments    = $decoderResult->getByteSegments();
 
 		if($byteSegments !== null){
 			$result->putMetadata('BYTE_SEGMENTS', $byteSegments);
@@ -127,21 +121,22 @@ final class Decoder{
 	 * @return \Zxing\Decoder\DecoderResult
 	 */
 	private function decodeParser(BitMatrixParser $parser):DecoderResult{
-		$version = $parser->readVersion();
-		$ecLevel = new EccLevel($parser->readFormatInformation()->getErrorCorrectionLevel());
+		$version  = $parser->readVersion();
+		$eccLevel = new EccLevel($parser->readFormatInformation()->getErrorCorrectionLevel());
 
 		// Read codewords
-		$codewords = $parser->readCodewords();
+		$codewords  = $parser->readCodewords();
 		// Separate into data blocks
-		$dataBlocks = $this->getDataBlocks($codewords, $version, $ecLevel);
+		$dataBlocks = $this->getDataBlocks($codewords, $version, $eccLevel);
 
 		// Count total number of data bytes
 		$totalBytes = 0;
+
 		foreach($dataBlocks as $dataBlock){
 			$totalBytes += $dataBlock[0];
 		}
 
-		$resultBytes  = \array_fill(0, $totalBytes, 0);
+		$resultBytes  = array_fill(0, $totalBytes, 0);
 		$resultOffset = 0;
 
 		// Error-correct and copy data blocks together into a stream of bytes
@@ -156,7 +151,7 @@ final class Decoder{
 		}
 
 		// Decode the contents of that stream of bytes
-		return (new DecodedBitStreamParser)->decode($resultBytes, $version, $ecLevel);
+		return (new DecodedBitStreamParser)->decode($resultBytes, $version, $eccLevel);
 	}
 
 	/**
@@ -166,20 +161,20 @@ final class Decoder{
 	 *
 	 * @param array                              $rawCodewords bytes as read directly from the QR Code
 	 * @param \chillerlan\QRCode\Common\Version  $version      version of the QR Code
-	 * @param \chillerlan\QRCode\Common\EccLevel $ecLevel      error-correction level of the QR Code
+	 * @param \chillerlan\QRCode\Common\EccLevel $eccLevel     error-correction level of the QR Code
 	 *
 	 * @return array DataBlocks containing original bytes, "de-interleaved" from representation in the QR Code
 	 * @throws \InvalidArgumentException
 	 */
-	private function getDataBlocks(array $rawCodewords, Version $version, EccLevel $ecLevel):array{
+	private function getDataBlocks(array $rawCodewords, Version $version, EccLevel $eccLevel):array{
 
-		if(\count($rawCodewords) !== $version->getTotalCodewords()){
+		if(count($rawCodewords) !== $version->getTotalCodewords()){
 			throw new InvalidArgumentException('$rawCodewords differ from total codewords for version');
 		}
 
 		// Figure out the number and size of data blocks used by this version and
 		// error correction level
-		[$numEccCodewords, $eccBlocks] = $version->getRSBlocks($ecLevel);
+		[$numEccCodewords, $eccBlocks] = $version->getRSBlocks($eccLevel);
 
 		// Now establish DataBlocks of the appropriate size and number of data codewords
 		$result          = [];//new DataBlock[$totalBlocks];
@@ -189,17 +184,17 @@ final class Decoder{
 			[$numEccBlocks, $eccPerBlock] = $blockData;
 
 			for($i = 0; $i < $numEccBlocks; $i++, $numResultBlocks++){
-				$result[$numResultBlocks] = [$eccPerBlock, \array_fill(0, $numEccCodewords + $eccPerBlock, 0)];
+				$result[$numResultBlocks] = [$eccPerBlock, array_fill(0, $numEccCodewords + $eccPerBlock, 0)];
 			}
 		}
 
 		// All blocks have the same amount of data, except that the last n
 		// (where n may be 0) have 1 more byte. Figure out where these start.
-		$shorterBlocksTotalCodewords = \count($result[0][1]);
-		$longerBlocksStartAt         = \count($result) - 1;
+		$shorterBlocksTotalCodewords = count($result[0][1]);
+		$longerBlocksStartAt         = count($result) - 1;
 
 		while($longerBlocksStartAt >= 0){
-			$numCodewords = \count($result[$longerBlocksStartAt][1]);
+			$numCodewords = count($result[$longerBlocksStartAt][1]);
 
 			if($numCodewords == $shorterBlocksTotalCodewords){
 				break;
@@ -227,7 +222,7 @@ final class Decoder{
 		}
 
 		// Now add in error correction blocks
-		$max = \count($result[0][1]);
+		$max = count($result[0][1]);
 
 		for($i = $shorterBlocksNumDataCodewords; $i < $max; $i++){
 			for($j = 0; $j < $numResultBlocks; $j++){
@@ -247,15 +242,14 @@ final class Decoder{
 	 * @param int   $numDataCodewords number of codewords that are data bytes
 	 */
 	private function correctErrors(array $codewordBytes, int $numDataCodewords):array{
-		$numCodewords = \count($codewordBytes);
 		// First read into an array of ints
-		$codewordsInts = \array_fill(0, $numCodewords, 0);
+		$codewordsInts = [];
 
-		for($i = 0; $i < $numCodewords; $i++){
-			$codewordsInts[$i] = $codewordBytes[$i] & 0xFF;
+		foreach($codewordBytes as $i => $codewordByte){
+			$codewordsInts[$i] = $codewordByte & 0xFF;
 		}
 
-		$decoded = (new ReedSolomonDecoder)->decode($codewordsInts, (\count($codewordBytes) - $numDataCodewords));
+		$decoded = (new ReedSolomonDecoder)->decode($codewordsInts, (count($codewordBytes) - $numDataCodewords));
 
 		// Copy back into array of bytes -- only need to worry about the bytes that were data
 		// We don't care about errors in the error-correction codewords
