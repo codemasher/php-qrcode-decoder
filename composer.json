@@ -32,7 +32,7 @@
 		"ext-gd": "*",
 		"ext-iconv": "*",
 		"ext-mbstring": "*",
-		"chillerlan/php-qrcode": "v5.x-dev#700af4b53ea40b37b477b02f53ce263b6a87ee97"
+		"chillerlan/php-qrcode": "v5.x-dev#22f1672fac3394b6e39c20efef896704b8f17315"
 	},
 	"require-dev": {
 		"phpunit/phpunit": "^9.5",

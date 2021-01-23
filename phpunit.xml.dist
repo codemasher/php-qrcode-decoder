@@ -8,7 +8,7 @@
 >
 	<coverage processUncoveredFiles="true">
 		<include>
-			<directory suffix=".php">./src</directory>
+			<directory suffix=".php">./lib</directory>
 		</include>
 		<report>
 			<clover outputFile=".build/coverage/clover.xml"/>
