@@ -100,7 +100,9 @@ class QrReaderTest extends TestCase{
 			self::markTestSkipped($version->getVersionNumber().$ecc->__toString().': '.$e->getMessage());
 		}
 
-		self::assertSame($expected, (string)$result);
+		self::assertSame($expected, $result->getText());
+		self::assertSame($version->getVersionNumber(), $result->getVersion()->getVersionNumber());
+		self::assertSame($ecc->getLevel(), $result->getEccLevel()->getLevel());
 	}
 
 }

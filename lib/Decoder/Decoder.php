@@ -17,8 +17,9 @@
 
 namespace Zxing\Decoder;
 
-use Exception, InvalidArgumentException;
-use chillerlan\QRCode\Common\{EccLevel, Version};
+use Exception, InvalidArgumentException, RuntimeException;
+use chillerlan\QRCode\Common\{BitBuffer, EccLevel, ECICharset, Mode, Version};
+use chillerlan\QRCode\Data\{AlphaNum, Byte, ECI, Kanji, Number};
 use Zxing\Common\ReedSolomonDecoder;
 use Zxing\Detector\Detector;
 use function count, array_fill;
@@ -32,57 +33,30 @@ use function count, array_fill;
 final class Decoder{
 
 	/**
-	 * @param \Zxing\Decoder\LuminanceSource $source
-	 *
-	 * @return \Zxing\Decoder\Result|null
-	 */
-	public function decode(LuminanceSource $source):?Result{
-		$matrix          = (new Binarizer($source))->getBlackMatrix();
-		$bits            = (new Detector($matrix))->detect();
-		$decoderResult   = $this->decodeBits($bits);
-		$result          = new Result($decoderResult->getText(), $decoderResult->getRawBytes());
-		$byteSegments    = $decoderResult->getByteSegments();
-
-		if($byteSegments !== null){
-			$result->putMetadata('BYTE_SEGMENTS', $byteSegments);
-		}
-
-		$ecLevel = $decoderResult->getECLevel();
-
-		if($ecLevel !== null){
-			$result->putMetadata('ERROR_CORRECTION_LEVEL', $ecLevel);
-		}
-
-		if($decoderResult->hasStructuredAppend()){
-			$result->putMetadata('STRUCTURED_APPEND_SEQUENCE', $decoderResult->getStructuredAppendSequenceNumber());
-			$result->putMetadata('STRUCTURED_APPEND_PARITY', $decoderResult->getStructuredAppendParity());
-		}
-
-		return $result;
-	}
-
-	/**
 	 * <p>Decodes a QR Code represented as a {@link \Zxing\Decoder\BitMatrix}. A 1 or "true" is taken to mean a black module.</p>
 	 *
-	 * @param \Zxing\Decoder\BitMatrix $bits booleans representing white/black QR Code modules
+	 * @param \Zxing\Decoder\LuminanceSource $source
 	 *
 	 * @return \Zxing\Decoder\DecoderResult text and bytes encoded within the QR Code
 	 * @throws \Exception if the QR Code cannot be decoded
 	 */
-	public function decodeBits(BitMatrix $bits):DecoderResult{
+	public function decode(LuminanceSource $source):DecoderResult{
+		$matrix    = (new Binarizer($source))->getBlackMatrix();
+		$bitMatrix = (new Detector($matrix))->detect();
+
 		$fe = null;
 
 		try{
 			// Construct a parser and read version, error-correction level
 			// clone the BitMatrix to avoid errors in case we run into mirroring
-			return $this->decodeParser(new BitMatrixParser(clone $bits));
+			return $this->decodeParser(new BitMatrixParser(clone $bitMatrix));
 		}
 		catch(Exception $e){
 			$fe = $e;
 		}
 
 		try{
-			$parser = new BitMatrixParser(clone $bits);
+			$parser = new BitMatrixParser(clone $bitMatrix);
 
 			// Will be attempting a mirrored reading of the version and format info.
 			$parser->setMirror(true);
@@ -124,19 +98,12 @@ final class Decoder{
 		$version  = $parser->readVersion();
 		$eccLevel = new EccLevel($parser->readFormatInformation()->getErrorCorrectionLevel());
 
-		// Read codewords
-		$codewords  = $parser->readCodewords();
+		// Read raw codewords
+		$rawCodewords  = $parser->readCodewords();
 		// Separate into data blocks
-		$dataBlocks = $this->getDataBlocks($codewords, $version, $eccLevel);
+		$dataBlocks = $this->getDataBlocks($rawCodewords, $version, $eccLevel);
 
-		// Count total number of data bytes
-		$totalBytes = 0;
-
-		foreach($dataBlocks as $dataBlock){
-			$totalBytes += $dataBlock[0];
-		}
-
-		$resultBytes  = array_fill(0, $totalBytes, 0);
+		$resultBytes  = [];
 		$resultOffset = 0;
 
 		// Error-correct and copy data blocks together into a stream of bytes
@@ -151,7 +118,7 @@ final class Decoder{
 		}
 
 		// Decode the contents of that stream of bytes
-		return (new DecodedBitStreamParser)->decode($resultBytes, $version, $eccLevel);
+		return $this->decodeBitStream($resultBytes, $version, $eccLevel);
 	}
 
 	/**
@@ -237,9 +204,6 @@ final class Decoder{
 	/**
 	 * <p>Given data and error-correction codewords received, possibly corrupted by errors, attempts to
 	 * correct the errors in-place using Reed-Solomon error correction.</p>
-	 *
-	 * @param array $codewordBytes    data and error correction codewords
-	 * @param int   $numDataCodewords number of codewords that are data bytes
 	 */
 	private function correctErrors(array $codewordBytes, int $numDataCodewords):array{
 		// First read into an array of ints
@@ -258,6 +222,121 @@ final class Decoder{
 		}
 
 		return $codewordBytes;
+	}
+
+	#	private const GB2312_SUBSET = 1;
+
+	/**
+	 * @throws \RuntimeException
+	 */
+	private function decodeBitStream(array $bytes, Version $version, EccLevel $ecLevel):DecoderResult{
+		$bits           = new BitBuffer($bytes);
+		$symbolSequence = -1;
+		$parityData     = -1;
+		$versionNumber  = $version->getVersionNumber();
+
+		$result      = '';
+		$eciCharset  = null;
+#		$fc1InEffect = false;
+
+		// While still another segment to read...
+		while($bits->available() >= 4){
+			$datamode = $bits->read(4); // mode is encoded by 4 bits
+
+			// OK, assume we're done. Really, a TERMINATOR mode should have been recorded here
+			if($datamode === Mode::DATA_TERMINATOR){
+				break;
+			}
+
+			if($datamode === Mode::DATA_ECI){
+				// Count doesn't apply to ECI
+				$value      = ECI::parseValue($bits);
+				$eciCharset = new ECICharset($value);
+			}
+			/** @noinspection PhpStatementHasEmptyBodyInspection */
+			elseif($datamode === Mode::DATA_FNC1_FIRST || $datamode === Mode::DATA_FNC1_SECOND){
+				// We do little with FNC1 except alter the parsed result a bit according to the spec
+#				$fc1InEffect = true;
+			}
+			elseif($datamode === Mode::DATA_STRCTURED_APPEND){
+				if($bits->available() < 16){
+					throw new RuntimeException('structured append: not enough bits left');
+				}
+				// sequence number and parity is added later to the result metadata
+				// Read next 8 bits (symbol sequence #) and 8 bits (parity data), then continue
+				$symbolSequence = $bits->read(8);
+				$parityData     = $bits->read(8);
+			}
+			else{
+				// First handle Hanzi mode which does not start with character count
+/*				if($datamode === Mode::DATA_HANZI){
+					//chinese mode contains a sub set indicator right after mode indicator
+					$subset = $bits->read(4);
+					$length = $bits->read(Mode::getLengthBitsForVersion($datamode, $versionNumber));
+					if($subset === self::GB2312_SUBSET){
+						$result .= $this->decodeHanziSegment($bits, $length);
+					}
+				}*/
+#				else{
+					// "Normal" QR code modes:
+					if($datamode === Mode::DATA_NUMBER){
+						$result .= Number::decodeSegment($bits, $versionNumber);
+					}
+					elseif($datamode === Mode::DATA_ALPHANUM){
+						$str = AlphaNum::decodeSegment($bits, $versionNumber);
+
+						// See section 6.4.8.1, 6.4.8.2
+/*						if($fc1InEffect){
+							$start = \strlen($str);
+							// We need to massage the result a bit if in an FNC1 mode:
+							for($i = $start; $i < $start; $i++){
+								if($str[$i] === '%'){
+									if($i < $start - 1 && $str[$i + 1] === '%'){
+										// %% is rendered as %
+										$str = \substr_replace($str, '', $i + 1, 1);//deleteCharAt(i + 1);
+									}
+#									else{
+										// In alpha mode, % should be converted to FNC1 separator 0x1D @todo
+#										$str = setCharAt($i, \chr(0x1D)); // ???
+#									}
+								}
+							}
+						}
+*/
+						$result .= $str;
+					}
+					elseif($datamode === Mode::DATA_BYTE){
+						$str = Byte::decodeSegment($bits, $versionNumber);
+
+						if($eciCharset !== null){
+							$encoding = $eciCharset->getName();
+
+							if($encoding === null){
+								// The spec isn't clear on this mode; see
+								// section 6.4.5: t does not say which encoding to assuming
+								// upon decoding. I have seen ISO-8859-1 used as well as
+								// Shift_JIS -- without anything like an ECI designator to
+								// give a hint.
+								$encoding = \mb_detect_encoding($str, ['ISO-8859-1', 'SJIS', 'UTF-8']);
+							}
+
+							$eciCharset = null;
+							$str = \mb_convert_encoding($str, $encoding);
+						}
+
+						$result .= $str;
+					}
+					elseif($datamode === Mode::DATA_KANJI){
+						$result .= Kanji::decodeSegment($bits, $versionNumber);
+					}
+					else{
+						throw new RuntimeException('invalid data mode');
+					}
+#				}
+			}
+		}
+
+		return new DecoderResult($bytes, $result, $version, $ecLevel, $symbolSequence, $parityData);
 	}
 
 }

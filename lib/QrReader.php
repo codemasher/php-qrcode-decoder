@@ -3,7 +3,7 @@
 namespace Zxing;
 
 use Imagick, InvalidArgumentException;
-use Zxing\Decoder\{Decoder, GDLuminanceSource, IMagickLuminanceSource, Result};
+use Zxing\Decoder\{Decoder, DecoderResult, GDLuminanceSource, IMagickLuminanceSource};
 use function extension_loaded, file_exists, file_get_contents, imagecreatefromstring, is_file, is_readable;
 
 final class QrReader{
@@ -17,10 +17,10 @@ final class QrReader{
 	/**
 	 * @param \Imagick|\GdImage|resource $im
 	 *
-	 * @return \Zxing\Decoder\Result|null
+	 * @return \Zxing\Decoder\DecoderResult
 	 * @phan-suppress PhanUndeclaredTypeParameter (GdImage)
 	 */
-	protected function decode($im):?Result{
+	protected function decode($im):DecoderResult{
 
 		$source = $this->useImagickIfAvailable
 			? new IMagickLuminanceSource($im)
@@ -32,9 +32,9 @@ final class QrReader{
 	/**
 	 * @param string $imgFilePath
 	 *
-	 * @return \Zxing\Decoder\Result|null
+	 * @return \Zxing\Decoder\DecoderResult
 	 */
-	public function readFile(string $imgFilePath):?Result{
+	public function readFile(string $imgFilePath):DecoderResult{
 
 		if(!file_exists($imgFilePath) || !is_file($imgFilePath) || !is_readable($imgFilePath)){
 			throw new InvalidArgumentException('invalid file: '.$imgFilePath);
@@ -50,9 +50,9 @@ final class QrReader{
 	/**
 	 * @param string $imgBlob
 	 *
-	 * @return \Zxing\Decoder\Result|null
+	 * @return \Zxing\Decoder\DecoderResult
 	 */
-	public function readBlob(string $imgBlob):?Result{
+	public function readBlob(string $imgBlob):DecoderResult{
 
 		if($this->useImagickIfAvailable){
 			$im = new Imagick;
@@ -68,9 +68,10 @@ final class QrReader{
 	/**
 	 * @param \Imagick|\GdImage|resource $imgSource
 	 *
-	 * @return \Zxing\Decoder\Result|null
+	 * @return \Zxing\Decoder\DecoderResult
 	 */
-	public function readResource($imgSource):?Result{
+	public function readResource($imgSource):DecoderResult{
 		return $this->decode($imgSource);
 	}
+
 }
