@@ -96,7 +96,7 @@ final class Decoder{
 	 */
 	private function decodeParser(BitMatrixParser $parser):DecoderResult{
 		$version  = $parser->readVersion();
-		$eccLevel = new EccLevel($parser->readFormatInformation()->getErrorCorrectionLevel());
+		$eccLevel = $parser->readFormatInformation()->getErrorCorrectionLevel();
 
 		// Read raw codewords
 		$rawCodewords  = $parser->readCodewords();

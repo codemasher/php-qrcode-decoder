@@ -180,13 +180,9 @@ final class BitMatrix{
 	 *
 	 * <p>Implementations of this method reverse the data masking process applied to a QR Code and
 	 * make its bits ready to read.</p>
-	 *
-	 * @param int $dimension
-	 * @param int $maskPattern
-	 *
 	 */
-	public function unmask(int $dimension, int $maskPattern):void{
-		$mask = (new MaskPattern($maskPattern))->getMask();
+	public function unmask(int $dimension, MaskPattern $maskPattern):void{
+		$mask = $maskPattern->getMask();
 
 		for($y = 0; $y < $dimension; $y++){
 			for($x = 0; $x < $dimension; $x++){

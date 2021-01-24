@@ -18,9 +18,8 @@
 namespace Zxing\Decoder;
 
 use chillerlan\QRCode\Common\Version;
-use Zxing\Common\FormatInformation;
 use RuntimeException;
-
+use Zxing\Common\FormatInformation;
 use function Zxing\Common\numBitsDiffering;
 
 /**
@@ -49,6 +48,34 @@ final class BitMatrixParser{
 	}
 
 	/**
+	 * Prepare the parser for a mirrored operation.
+	 * This flag has effect only on the {@link #readFormatInformation()} and the
+	 * {@link #readVersion()}. Before proceeding with {@link #readCodewords()} the
+	 * {@link #mirror()} method should be called.
+	 *
+	 * @param bool mirror Whether to read version and format information mirrored.
+	 */
+	public function setMirror(bool $mirror):void{
+		$this->parsedVersion    = null;
+		$this->parsedFormatInfo = null;
+		$this->mirror           = $mirror;
+	}
+
+	/** Mirror the bit matrix in order to attempt a second reading. */
+	public function mirror():void{
+		$this->bitMatrix->mirror();
+	}
+
+	private function copyBit(int $i, int $j, int $versionBits):int{
+
+		$bit = $this->mirror
+			? $this->bitMatrix->get($j, $i)
+			: $this->bitMatrix->get($i, $j);
+
+		return $bit ? ($versionBits << 1) | 0x1 : $versionBits << 1;
+	}
+
+	/**
 	 * <p>Reads the bits in the {@link BitMatrix} representing the finder pattern in the
 	 * correct order in order to reconstruct the codewords bytes contained within the
 	 * QR Code.</p>
@@ -67,12 +94,13 @@ final class BitMatrixParser{
 		$functionPattern = $this->bitMatrix->buildFunctionPattern($version);
 
 		$readingUp    = true;
-		$result       = \array_fill(0, $version->getTotalCodewords(), 0);
+		$result       = [];
 		$resultOffset = 0;
 		$currentByte  = 0;
 		$bitsRead     = 0;
 		// Read columns in pairs, from right to left
 		for($j = $dimension - 1; $j > 0; $j -= 2){
+
 			if($j === 6){
 				// Skip whole column with vertical alignment pattern;
 				// saves time and makes the other code proceed more cleanly
@@ -81,12 +109,14 @@ final class BitMatrixParser{
 			// Read alternatingly from bottom to top then top to bottom
 			for($count = 0; $count < $dimension; $count++){
 				$i = $readingUp ? $dimension - 1 - $count : $count;
+
 				for($col = 0; $col < 2; $col++){
 					// Ignore bits covered by the function pattern
 					if(!$functionPattern->get($j - $col, $i)){
 						// Read a bit
 						$bitsRead++;
 						$currentByte <<= 1;
+
 						if($this->bitMatrix->get($j - $col, $i)){
 							$currentByte |= 1;
 						}
@@ -99,6 +129,7 @@ final class BitMatrixParser{
 					}
 				}
 			}
+
 			$readingUp = !$readingUp; // switch directions
 		}
 
@@ -151,22 +182,70 @@ final class BitMatrixParser{
 			$formatInfoBits2 = $this->copyBit($i, 8, $formatInfoBits2);
 		}
 
-		$parsedFormatInfo = FormatInformation::decodeFormatInformation($formatInfoBits1, $formatInfoBits2);
+		$this->parsedFormatInfo = $this->doDecodeFormatInformation($formatInfoBits1, $formatInfoBits2);
 
-		if($parsedFormatInfo !== null){
-			return $parsedFormatInfo;
+		if($this->parsedFormatInfo !== null){
+			return $this->parsedFormatInfo;
+		}
+
+		// Should return null, but, some QR codes apparently do not mask this info.
+		// Try again by actually masking the pattern first.
+		$this->parsedFormatInfo = $this->doDecodeFormatInformation(
+			$formatInfoBits1 ^ FormatInformation::MASK_QR,
+			$formatInfoBits2 ^ FormatInformation::MASK_QR
+		);
+
+		if($this->parsedFormatInfo !== null){
+			return $this->parsedFormatInfo;
 		}
 
 		throw new RuntimeException('failed to read format info');
 	}
 
-	private function copyBit(int $i, int $j, int $versionBits):int{
+	/**
+	 * @param int $maskedFormatInfo1 format info indicator, with mask still applied
+	 * @param int $maskedFormatInfo2 second copy of same info; both are checked at the same time
+	 *                               to establish best match
+	 *
+	 * @return \Zxing\Common\FormatInformation information about the format it specifies, or {@code null}
+	 *                                          if doesn't seem to match any known pattern
+	 */
+	private function doDecodeFormatInformation(int $maskedFormatInfo1, int $maskedFormatInfo2):?FormatInformation{
+		// Find the int in FORMAT_INFO_DECODE_LOOKUP with fewest bits differing
+		$bestDifference = \PHP_INT_MAX;
+		$bestFormatInfo = 0;
 
-		$bit = $this->mirror
-			? $this->bitMatrix->get($j, $i)
-			: $this->bitMatrix->get($i, $j);
+		foreach(FormatInformation::DECODE_LOOKUP as $decodeInfo){
+			[$maskedBits, $dataBits] = $decodeInfo;
 
-		return $bit ? ($versionBits << 1) | 0x1 : $versionBits << 1;
+			if($maskedFormatInfo1 === $dataBits || $maskedFormatInfo2 === $dataBits){
+				// Found an exact match
+				return new FormatInformation($maskedBits);
+			}
+
+			$bitsDifference = numBitsDiffering($maskedFormatInfo1, $dataBits);
+
+			if($bitsDifference < $bestDifference){
+				$bestFormatInfo = $maskedBits;
+				$bestDifference = $bitsDifference;
+			}
+
+			if($maskedFormatInfo1 !== $maskedFormatInfo2){
+				// also try the other option
+				$bitsDifference = numBitsDiffering($maskedFormatInfo2, $dataBits);
+
+				if($bitsDifference < $bestDifference){
+					$bestFormatInfo = $maskedBits;
+					$bestDifference = $bitsDifference;
+				}
+			}
+		}
+		// Hamming distance of the 32 masked codes is 7, by construction, so <= 3 bits differing means we found a match
+		if($bestDifference <= 3){
+			return new FormatInformation($bestFormatInfo);
+		}
+
+		return null;
 	}
 
 	/**
@@ -199,12 +278,10 @@ final class BitMatrixParser{
 			}
 		}
 
-		$theParsedVersion = $this->decodeVersionInformation($versionBits);
+		$this->parsedVersion = $this->decodeVersionInformation($versionBits);
 
-		if($theParsedVersion !== null && $theParsedVersion->getDimension() === $dimension){
-			$this->parsedVersion = $theParsedVersion;
-
-			return $theParsedVersion;
+		if($this->parsedVersion !== null && $this->parsedVersion->getDimension() === $dimension){
+			return $this->parsedVersion;
 		}
 
 		// Hmm, failed. Try bottom left: 6 wide by 3 tall
@@ -216,12 +293,10 @@ final class BitMatrixParser{
 			}
 		}
 
-		$theParsedVersion = $this->decodeVersionInformation($versionBits);
+		$this->parsedVersion = $this->decodeVersionInformation($versionBits);
 
-		if($theParsedVersion !== null && $theParsedVersion->getDimension() === $dimension){
-			$this->parsedVersion = $theParsedVersion;
-
-			return $theParsedVersion;
+		if($this->parsedVersion !== null && $this->parsedVersion->getDimension() === $dimension){
+			return $this->parsedVersion;
 		}
 
 		throw new RuntimeException('failed to read version');
@@ -257,25 +332,6 @@ final class BitMatrixParser{
 
 		// If we didn't find a close enough match, fail
 		return null;
-	}
-
-	/**
-	 * Prepare the parser for a mirrored operation.
-	 * This flag has effect only on the {@link #readFormatInformation()} and the
-	 * {@link #readVersion()}. Before proceeding with {@link #readCodewords()} the
-	 * {@link #mirror()} method should be called.
-	 *
-	 * @param bool mirror Whether to read version and format information mirrored.
-	 */
-	public function setMirror(bool $mirror):void{
-		$this->parsedVersion    = null;
-		$this->parsedFormatInfo = null;
-		$this->mirror           = $mirror;
-	}
-
-	/** Mirror the bit matrix in order to attempt a second reading. */
-	public function mirror():void{
-		$this->bitMatrix->mirror();
 	}
 
 }
