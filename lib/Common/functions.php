@@ -1,4 +1,13 @@
 <?php
+/**
+ * @filesource   functions.php
+ * @created      24.01.2021
+ * @package      chillerlan\QRCode\Common
+ * @author       ZXing Authors
+ * @author       Smiley <smiley@chillerlan.net>
+ * @copyright    2021 Smiley
+ * @license      Apache-2.0
+ */
 
 namespace Zxing\Common;
 

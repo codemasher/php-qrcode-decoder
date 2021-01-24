@@ -1,19 +1,15 @@
 <?php
-/*
-* Copyright 2009 ZXing authors
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*      http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+/**
+ * Class Binarizer
+ *
+ * @filesource   Binarizer.php
+ * @created      17.01.2021
+ * @package      chillerlan\QRCode\Decoder
+ * @author       ZXing Authors
+ * @author       Smiley <smiley@chillerlan.net>
+ * @copyright    2021 Smiley
+ * @license      Apache-2.0
+ */
 
 namespace Zxing\Decoder;
 
@@ -141,8 +137,7 @@ final class Binarizer{
 		$height = $this->source->getHeight();
 
 		if($width >= self::MINIMUM_DIMENSION && $height >= self::MINIMUM_DIMENSION){
-			$luminances = $this->source->getMatrix();
-			$subWidth   = $width >> self::BLOCK_SIZE_POWER;
+			$subWidth = $width >> self::BLOCK_SIZE_POWER;
 
 			if(($width & self::BLOCK_SIZE_MASK) !== 0){
 				$subWidth++;
@@ -154,28 +149,23 @@ final class Binarizer{
 				$subHeight++;
 			}
 
-			$blackPoints = $this->calculateBlackPoints($luminances, $subWidth, $subHeight, $width, $height);
-
-			return $this->calculateThresholdForBlock($luminances, $subWidth, $subHeight, $width, $height, $blackPoints);
+			return $this->calculateThresholdForBlock($subWidth, $subHeight, $width, $height);
 		}
 
 		// If the image is too small, fall back to the global histogram approach.
-		return $this->getHistogramBlackMatrix();
+		return $this->getHistogramBlackMatrix($width, $height);
 	}
 
-	public function getHistogramBlackMatrix():BitMatrix{
-		$width  = $this->source->getWidth();
-		$height = $this->source->getHeight();
+	public function getHistogramBlackMatrix(int $width, int $height):BitMatrix{
 		$matrix = new BitMatrix(max($width, $height));
 
 		// Quickly calculates the histogram by sampling four rows from the image. This proved to be
 		// more robust on the blackbox tests than sampling a diagonal as we used to do.
-		$luminances = [];
-		$buckets    = array_fill(0, self::LUMINANCE_BUCKETS, 0);
+		$buckets = array_fill(0, self::LUMINANCE_BUCKETS, 0);
 
 		for($y = 1; $y < 5; $y++){
 			$row             = (int)($height * $y / 5);
-			$localLuminances = $this->source->getRow($row, $luminances);
+			$localLuminances = $this->source->getRow($row);
 			$right           = (int)(($width * 4) / 5);
 
 			for($x = (int)($width / 5); $x < $right; $x++){
@@ -305,14 +295,14 @@ final class Binarizer{
 	 * on the last pixels in the row/column which are also used in the previous block).
 	 */
 	private function calculateThresholdForBlock(
-		array $luminances,
 		int $subWidth,
 		int $subHeight,
 		int $width,
-		int $height,
-		array $blackPoints
+		int $height
 	):BitMatrix{
-		$matrix = new BitMatrix(max($width, $height));
+		$matrix      = new BitMatrix(max($width, $height));
+		$luminances  = $this->source->getMatrix();
+		$blackPoints = $this->calculateBlackPoints($luminances, $subWidth, $subHeight, $width, $height);
 
 		for($y = 0; $y < $subHeight; $y++){
 			$yoffset    = ($y << self::BLOCK_SIZE_POWER);

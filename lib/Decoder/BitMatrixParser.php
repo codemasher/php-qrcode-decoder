@@ -1,18 +1,14 @@
 <?php
-/*
- * Copyright 2007 ZXing authors
+/**
+ * Class BitMatrixParser
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * @filesource   BitMatrixParser.php
+ * @created      17.01.2021
+ * @package      chillerlan\QRCode\Decoder
+ * @author       ZXing Authors
+ * @author       Smiley <smiley@chillerlan.net>
+ * @copyright    2021 Smiley
+ * @license      Apache-2.0
  */
 
 namespace Zxing\Decoder;
@@ -21,6 +17,7 @@ use chillerlan\QRCode\Common\Version;
 use RuntimeException;
 use Zxing\Common\FormatInformation;
 use function Zxing\Common\numBitsDiffering;
+use const PHP_INT_MAX;
 
 /**
  * @author Sean Owen
@@ -61,7 +58,9 @@ final class BitMatrixParser{
 		$this->mirror           = $mirror;
 	}
 
-	/** Mirror the bit matrix in order to attempt a second reading. */
+	/**
+	 * Mirror the bit matrix in order to attempt a second reading.
+	 */
 	public function mirror():void{
 		$this->bitMatrix->mirror();
 	}
@@ -212,7 +211,7 @@ final class BitMatrixParser{
 	 */
 	private function doDecodeFormatInformation(int $maskedFormatInfo1, int $maskedFormatInfo2):?FormatInformation{
 		// Find the int in FORMAT_INFO_DECODE_LOOKUP with fewest bits differing
-		$bestDifference = \PHP_INT_MAX;
+		$bestDifference = PHP_INT_MAX;
 		$bestFormatInfo = 0;
 
 		foreach(FormatInformation::DECODE_LOOKUP as $decodeInfo){
@@ -303,7 +302,7 @@ final class BitMatrixParser{
 	}
 
 	private function decodeVersionInformation(int $versionBits):?Version{
-		$bestDifference = \PHP_INT_MAX;
+		$bestDifference = PHP_INT_MAX;
 		$bestVersion    = 0;
 
 		for($i = 7; $i <= 40; $i++){

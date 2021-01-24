@@ -1,18 +1,14 @@
 <?php
-/*
- * Copyright 2007 ZXing authors
+/**
+ * Class Decoder
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * @filesource   Decoder.php
+ * @created      17.01.2021
+ * @package      chillerlan\QRCode\Decoder
+ * @author       ZXing Authors
+ * @author       Smiley <smiley@chillerlan.net>
+ * @copyright    2021 Smiley
+ * @license      Apache-2.0
  */
 
 namespace Zxing\Decoder;
@@ -22,7 +18,7 @@ use chillerlan\QRCode\Common\{BitBuffer, EccLevel, ECICharset, Mode, Version};
 use chillerlan\QRCode\Data\{AlphaNum, Byte, ECI, Kanji, Number};
 use Zxing\Common\ReedSolomonDecoder;
 use Zxing\Detector\Detector;
-use function count, array_fill;
+use function count, array_fill, mb_convert_encoding, mb_detect_encoding;
 
 /**
  * <p>The main class which implements QR Code decoding -- as opposed to locating and extracting
@@ -317,11 +313,11 @@ final class Decoder{
 								// upon decoding. I have seen ISO-8859-1 used as well as
 								// Shift_JIS -- without anything like an ECI designator to
 								// give a hint.
-								$encoding = \mb_detect_encoding($str, ['ISO-8859-1', 'SJIS', 'UTF-8']);
+								$encoding = mb_detect_encoding($str, ['ISO-8859-1', 'SJIS', 'UTF-8']);
 							}
 
 							$eciCharset = null;
-							$str = \mb_convert_encoding($str, $encoding);
+							$str = mb_convert_encoding($str, $encoding);
 						}
 
 						$result .= $str;

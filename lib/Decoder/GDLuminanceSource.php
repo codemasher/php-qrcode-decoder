@@ -16,7 +16,6 @@ namespace Zxing\Decoder;
 use InvalidArgumentException;
 use function get_resource_type;
 use function imagecolorat, imagecolorsforindex, imagesx, imagesy, is_resource;
-use function var_dump;
 use const PHP_MAJOR_VERSION;
 
 /**
@@ -69,4 +68,5 @@ final class GDLuminanceSource extends LuminanceSource{
 			}
 		}
 	}
+
 }
