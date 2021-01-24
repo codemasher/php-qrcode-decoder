@@ -2,9 +2,7 @@
 /**
  * Class FormatInformation
  *
- * @filesource   FormatInformation.php
  * @created      24.01.2021
- * @package      chillerlan\QRCode\Common
  * @author       ZXing Authors
  * @author       Smiley <smiley@chillerlan.net>
  * @copyright    2021 Smiley

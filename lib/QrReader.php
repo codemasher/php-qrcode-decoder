@@ -1,4 +1,15 @@
-<?php /** @noinspection PhpComposerExtensionStubsInspection */
+<?php
+/**
+ * Class QrReader
+ *
+ * @created      17.01.2021
+ * @author       ZXing Authors
+ * @author       Smiley <smiley@chillerlan.net>
+ * @copyright    2021 Smiley
+ * @license      Apache-2.0
+ *
+ * @noinspection PhpComposerExtensionStubsInspection
+ */
 
 namespace Zxing;
 

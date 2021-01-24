@@ -1,6 +1,5 @@
 <?php
 /**
- * @filesource   functions.php
  * @created      24.01.2021
  * @package      chillerlan\QRCode\Common
  * @author       ZXing Authors

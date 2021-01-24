@@ -2,9 +2,7 @@
 /**
  * Class FinderPatternFinder
  *
- * @filesource   FinderPatternFinder.php
  * @created      17.01.2021
- * @package      chillerlan\QRCode\Detector
  * @author       ZXing Authors
  * @author       Smiley <smiley@chillerlan.net>
  * @copyright    2021 Smiley
